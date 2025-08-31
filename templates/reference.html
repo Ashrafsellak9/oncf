@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Données de Référence - ONCF EMS{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- En-tête de la page -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-database text-primary me-2"></i>
+                        Données de Référence
+                    </h2>
+                    <p class="text-muted mb-0">Gestion et consultation des données de référence du système</p>
+                </div>
+                <div class="text-end">
+                    <div class="badge bg-primary fs-6">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Système de Référence
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carte principale -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Consultation des Données
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Onglets -->
+                    <ul class="nav nav-tabs nav-fill" id="referenceTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link active" data-tab="types" href="#typesTab" role="tab">
+                                <i class="fas fa-tags me-1"></i>
+                                Types d'Incidents
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" data-tab="sous-types" href="#sousTypesTab" role="tab">
+                                <i class="fas fa-tag me-1"></i>
+                                Sous-types
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" data-tab="systemes" href="#systemesTab" role="tab">
+                                <i class="fas fa-cogs me-1"></i>
+                                Systèmes
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" data-tab="sources" href="#sourcesTab" role="tab">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Sources
+                            </a>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link" data-tab="entites" href="#entitesTab" role="tab">
+                                <i class="fas fa-building me-1"></i>
+                                Entités
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <!-- Contenu des onglets -->
+                    <div class="tab-content mt-4" id="referenceTabContent">
+                        <!-- Types -->
+                        <div class="tab-pane fade show active" id="typesTab" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-tags text-primary me-2"></i>
+                                    Types d'Incidents
+                                </h6>
+                                <span class="badge bg-info" id="typesCount">Chargement...</span>
+                            </div>
+                            <div id="typesContainer">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Chargement...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Chargement des types...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sous-types -->
+                        <div class="tab-pane fade" id="sousTypesTab" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-tag text-success me-2"></i>
+                                    Sous-types d'Incidents
+                                </h6>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="clearSousTypesFilter()">
+                                        <i class="fas fa-times"></i> Effacer le filtre
+                                    </button>
+                                    <span class="badge bg-success" id="sousTypesCount">Chargement...</span>
+                                </div>
+                            </div>
+                            <div id="sous-typesContainer">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-success" role="status">
+                                        <span class="visually-hidden">Chargement...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Chargement des sous-types...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Systèmes -->
+                        <div class="tab-pane fade" id="systemesTab" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-cogs text-warning me-2"></i>
+                                    Systèmes
+                                </h6>
+                                <span class="badge bg-warning" id="systemesCount">Chargement...</span>
+                            </div>
+                            <div id="systemesContainer">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-warning" role="status">
+                                        <span class="visually-hidden">Chargement...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Chargement des systèmes...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sources -->
+                        <div class="tab-pane fade" id="sourcesTab" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle text-info me-2"></i>
+                                    Sources d'Information
+                                </h6>
+                                <span class="badge bg-info" id="sourcesCount">Chargement...</span>
+                            </div>
+                            <div id="sourcesContainer">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-info" role="status">
+                                        <span class="visually-hidden">Chargement...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Chargement des sources...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Entités -->
+                        <div class="tab-pane fade" id="entitesTab" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-building text-danger me-2"></i>
+                                    Entités
+                                </h6>
+                                <span class="badge bg-danger" id="entitesCount">Chargement...</span>
+                            </div>
+                            <div id="entitesContainer">
+                                <div class="text-center py-4">
+                                    <div class="spinner-border text-danger" role="status">
+                                        <span class="visually-hidden">Chargement...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Chargement des entités...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/reference.js') }}"></script>
+{% endblock %}

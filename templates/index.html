@@ -7,20 +7,26 @@
 <div class="hero-section text-white text-center py-5">
     <div class="container">
         <div class="row">
-            <div class="col-lg-8 mx-auto">
-                <h1 class="display-4 fw-bold mb-4">
+            <div class="col-lg-10 mx-auto">
+                <h1 class="display-3 fw-bold mb-4">
                     <i class="fas fa-train me-3"></i>
-                    ONCF
+                    ONCF 
                 </h1>
-                <p class="lead mb-4">
-                    Plateforme moderne de gestion et visualisation des données ferroviaires du Maroc
+                <p class="lead mb-4 fs-4">
+                    Système d'Information Géographique du Réseau Ferroviaire Marocain
                 </p>
-                <div class="d-flex justify-content-center gap-3">
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg">
+                <p class="mb-5 fs-5 opacity-75">
+                    Plateforme moderne de gestion, visualisation et analyse des données ferroviaires
+                </p>
+                <div class="d-flex justify-content-center gap-4 flex-wrap">
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-4">
                         <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                     </a>
-                    <a href="{{ url_for('carte') }}" class="btn btn-outline-light btn-lg">
+                    <a href="{{ url_for('carte') }}" class="btn btn-outline-light btn-lg px-4">
                         <i class="fas fa-map me-2"></i>Carte Interactive
+                    </a>
+                    <a href="{{ url_for('statistiques') }}" class="btn btn-success btn-lg px-4">
+                        <i class="fas fa-chart-bar me-2"></i>Statistiques
                     </a>
                 </div>
             </div>
@@ -31,7 +37,7 @@
 <!-- Features Section -->
 <div class="container py-5">
     <div class="row">
-        <div class="col-lg-4 mb-4">
+        <div class="col-lg-3 col-md-6 mb-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-body text-center">
                     <div class="feature-icon mb-3">
@@ -46,7 +52,7 @@
             </div>
         </div>
         
-        <div class="col-lg-4 mb-4">
+        <div class="col-lg-3 col-md-6 mb-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-body text-center">
                     <div class="feature-icon mb-3">
@@ -61,7 +67,7 @@
             </div>
         </div>
         
-        <div class="col-lg-4 mb-4">
+        <div class="col-lg-3 col-md-6 mb-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-body text-center">
                     <div class="feature-icon mb-3">
@@ -75,36 +81,57 @@
                 </div>
             </div>
         </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-shield-alt fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">Sécurité & Surveillance</h5>
+                    <p class="card-text">
+                        Surveillez les incidents et maintenez la sécurité 
+                        du réseau avec des outils de gestion avancés.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <!-- Statistics Section -->
 <div class="bg-light py-5">
     <div class="container">
-        <h2 class="text-center mb-5">Aperçu du Réseau</h2>
+        <div class="text-center mb-5">
+            <h2 class="fw-bold text-primary mb-3">
+                <i class="fas fa-chart-pie me-2"></i>
+                Aperçu du Réseau Ferroviaire
+            </h2>
+            <p class="lead text-muted">Statistiques en temps réel du réseau ONCF</p>
+        </div>
         <div class="row text-center">
-            <div class="col-md-3 mb-4">
+            <div class="col-lg-3 col-md-6 mb-4">
                 <div class="stat-card">
                     <div class="stat-number" id="total-gares">-</div>
                     <div class="stat-label">Gares</div>
                 </div>
             </div>
-            <div class="col-md-3 mb-4">
+            <div class="col-lg-3 col-md-6 mb-4">
                 <div class="stat-card">
                     <div class="stat-number" id="total-arcs">-</div>
                     <div class="stat-label">Sections de Voie</div>
                 </div>
             </div>
-            <div class="col-md-3 mb-4">
+            <div class="col-lg-3 col-md-6 mb-4">
                 <div class="stat-card">
                     <div class="stat-number" id="total-axes">-</div>
                     <div class="stat-label">Axes Ferroviaires</div>
                 </div>
             </div>
-            <div class="col-md-3 mb-4">
+            <div class="col-lg-3 col-md-6 mb-4">
                 <div class="stat-card">
-                    <div class="stat-number" id="total-villes">-</div>
-                    <div class="stat-label">Villes Desservies</div>
+                    <div class="stat-number" id="total-incidents">-</div>
+                    <div class="stat-label">Incidents</div>
                 </div>
             </div>
         </div>
@@ -113,44 +140,70 @@
 
 <!-- Quick Actions -->
 <div class="container py-5">
-    <h2 class="text-center mb-5">Accès Rapide</h2>
+    <div class="text-center mb-5">
+        <h2 class="fw-bold text-primary mb-3">
+            <i class="fas fa-rocket me-2"></i>
+            Accès Rapide
+        </h2>
+        <p class="lead text-muted">Navigation directe vers les principales fonctionnalités</p>
+    </div>
     <div class="row">
-        <div class="col-md-6 col-lg-3 mb-4">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
             <a href="{{ url_for('gares') }}" class="text-decoration-none">
                 <div class="quick-action-card">
                     <i class="fas fa-building fa-2x mb-3 text-primary"></i>
-                    <h5>Gestion des Gares</h5>
-                    <p class="text-muted">Consultez et gérez les informations des gares</p>
+                    <h5>Gares</h5>
+                    <p class="text-muted">Gestion des gares</p>
                 </div>
             </a>
         </div>
         
-        <div class="col-md-6 col-lg-3 mb-4">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+            <a href="{{ url_for('axes') }}" class="text-decoration-none">
+                <div class="quick-action-card">
+                    <i class="fas fa-route fa-2x mb-3 text-success"></i>
+                    <h5>Axes</h5>
+                    <p class="text-muted">Voies ferroviaires</p>
+                </div>
+            </a>
+        </div>
+        
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+            <a href="{{ url_for('incidents') }}" class="text-decoration-none">
+                <div class="quick-action-card">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-3 text-warning"></i>
+                    <h5>Incidents</h5>
+                    <p class="text-muted">Gestion des incidents</p>
+                </div>
+            </a>
+        </div>
+        
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
             <a href="{{ url_for('carte') }}" class="text-decoration-none">
                 <div class="quick-action-card">
-                    <i class="fas fa-map fa-2x mb-3 text-success"></i>
-                    <h5>Carte Interactive</h5>
-                    <p class="text-muted">Explorez le réseau sur une carte interactive</p>
+                    <i class="fas fa-map fa-2x mb-3 text-info"></i>
+                    <h5>Carte</h5>
+                    <p class="text-muted">Carte interactive</p>
                 </div>
             </a>
         </div>
         
-        <div class="col-md-6 col-lg-3 mb-4">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
             <a href="{{ url_for('statistiques') }}" class="text-decoration-none">
                 <div class="quick-action-card">
-                    <i class="fas fa-chart-bar fa-2x mb-3 text-info"></i>
-                    <h5>Statistiques</h5>
-                    <p class="text-muted">Analysez les données avec des graphiques</p>
+                    <i class="fas fa-chart-bar fa-2x mb-3 text-danger"></i>
+                    <h5>Stats</h5>
+                    <p class="text-muted">Statistiques</p>
                 </div>
             </a>
         </div>
         
-        <div class="col-md-6 col-lg-3 mb-4">
-            <a href="{{ url_for('dashboard') }}" class="text-decoration-none">
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-4">
+            <a href="{{ url_for('reference') }}" class="text-decoration-none">
                 <div class="quick-action-card">
-                    <i class="fas fa-tachometer-alt fa-2x mb-3 text-warning"></i>
-                    <h5>Dashboard</h5>
-                    <p class="text-muted">Vue d'ensemble du système</p>
+                    <i class="fas fa-database fa-2x mb-3 text-secondary"></i>
+                    <h5>Référence</h5>
+                    <p class="text-muted">Données de référence</p>
                 </div>
             </a>
         </div>
@@ -162,25 +215,75 @@
 <script>
 // Charger les statistiques au chargement de la page
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initialisation de la page d\'accueil...');
+    
+    // Afficher les indicateurs de chargement
+    document.getElementById('total-gares').classList.add('loading');
+    document.getElementById('total-arcs').classList.add('loading');
+    document.getElementById('total-axes').classList.add('loading');
+    document.getElementById('total-incidents').classList.add('loading');
+    
     fetch('/api/statistiques')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('total-gares').textContent = data.data.gares.total;
-                document.getElementById('total-arcs').textContent = data.data.arcs.total;
-                document.getElementById('total-axes').textContent = data.data.gares.par_axe.length;
+                console.log('✅ Statistiques chargées:', data.data);
                 
-                // Compter les villes uniques
-                const villes = new Set();
-                data.data.gares.par_axe.forEach(axe => {
-                    if (axe.axe) villes.add(axe.axe);
-                });
-                document.getElementById('total-villes').textContent = villes.size;
+                // Mettre à jour les statistiques
+                document.getElementById('total-gares').textContent = data.data.gares.total || 0;
+                document.getElementById('total-arcs').textContent = data.data.arcs.total || 0;
+                document.getElementById('total-axes').textContent = data.data.arcs.par_axe?.length || 0;
+                document.getElementById('total-incidents').textContent = data.data.evenements.total || 0;
+                
+                // Retirer les indicateurs de chargement
+                document.getElementById('total-gares').classList.remove('loading');
+                document.getElementById('total-arcs').classList.remove('loading');
+                document.getElementById('total-axes').classList.remove('loading');
+                document.getElementById('total-incidents').classList.remove('loading');
+                
+                // Animation des nombres
+                animateNumbers();
             }
         })
         .catch(error => {
-            console.error('Erreur lors du chargement des statistiques:', error);
+            console.error('❌ Erreur lors du chargement des statistiques:', error);
+            
+            // Retirer les indicateurs de chargement en cas d'erreur
+            document.getElementById('total-gares').classList.remove('loading');
+            document.getElementById('total-arcs').classList.remove('loading');
+            document.getElementById('total-axes').classList.remove('loading');
+            document.getElementById('total-incidents').classList.remove('loading');
         });
 });
+
+// Animation des nombres
+function animateNumbers() {
+    const statNumbers = document.querySelectorAll('.stat-number');
+    statNumbers.forEach(element => {
+        const finalValue = parseInt(element.textContent);
+        if (!isNaN(finalValue)) {
+            animateValue(element, 0, finalValue, 1000);
+        }
+    });
+}
+
+function animateValue(element, start, end, duration) {
+    const startTime = performance.now();
+    const difference = end - start;
+    
+    function updateValue(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const current = Math.floor(start + (difference * progress));
+        element.textContent = current;
+        
+        if (progress < 1) {
+            requestAnimationFrame(updateValue);
+        }
+    }
+    
+    requestAnimationFrame(updateValue);
+}
 </script>
 {% endblock %} 

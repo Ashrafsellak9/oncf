@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script pour tester la page des incidents et vérifier la pagination
+Test de la page des incidents après import
 """
 
 import requests
@@ -8,131 +8,87 @@ import json
 from bs4 import BeautifulSoup
 
 def test_incidents_page():
-    """Tester la page des incidents"""
-    base_url = "http://localhost:5000"
+    """Test de la page des incidents"""
+    session = requests.Session()
     
-    print("🧪 Test de la page des incidents")
-    print("=" * 50)
-    
-    # Test 1: Accès à la page des incidents
-    print("\n1️⃣ Test: Accès à la page des incidents")
+    # Connexion
+    print("🔐 Connexion...")
     try:
-        # D'abord se connecter
-        session = requests.Session()
+        response = session.get('http://localhost:5000/login')
+        soup = BeautifulSoup(response.text, 'html.parser')
+        csrf_token = soup.find('input', {'name': 'csrf_token'})
+        csrf_value = csrf_token.get('value') if csrf_token else ""
+        
         login_data = {
             'username': 'admin',
             'password': 'admin123',
-            'remember_me': False
+            'csrf_token': csrf_value
         }
         
-        login_response = session.post(f"{base_url}/login", data=login_data)
-        if login_response.status_code == 200:
+        response = session.post('http://localhost:5000/login', data=login_data, allow_redirects=False)
+        if response.status_code == 302:
             print("✅ Connexion réussie")
         else:
             print("❌ Échec de la connexion")
             return
-        
-        # Accéder à la page des incidents
-        incidents_response = session.get(f"{base_url}/incidents")
-        if incidents_response.status_code == 200:
+    except Exception as e:
+        print(f"❌ Erreur de connexion: {e}")
+        return
+    
+    # Test de la page des incidents
+    print("\n📄 Test de la page des incidents...")
+    try:
+        response = session.get('http://localhost:5000/incidents')
+        if response.status_code == 200:
             print("✅ Page des incidents accessible")
             
-            # Analyser le contenu HTML
-            soup = BeautifulSoup(incidents_response.text, 'html.parser')
-            
-            # Vérifier la présence des éléments de pagination
-            pagination_controls = soup.find('ul', {'id': 'paginationControls'})
-            if pagination_controls:
-                print("✅ Contrôles de pagination présents")
+            # Vérifier le contenu
+            if 'incidentsList' in response.text:
+                print("✅ Conteneur incidentsList trouvé")
             else:
-                print("⚠️  Contrôles de pagination non trouvés")
-            
-            # Vérifier la présence du sélecteur d'éléments par page
-            items_per_page_select = soup.find('select', {'id': 'itemsPerPageSelect'})
-            if items_per_page_select:
-                print("✅ Sélecteur d'éléments par page présent")
-                options = items_per_page_select.find_all('option')
-                print(f"   📋 Options disponibles: {[opt.get('value') for opt in options]}")
-            else:
-                print("⚠️  Sélecteur d'éléments par page non trouvé")
-            
-            # Vérifier la présence des informations de pagination
-            pagination_info = soup.find('span', {'id': 'paginationInfo'})
-            if pagination_info:
-                print("✅ Informations de pagination présentes")
-            else:
-                print("⚠️  Informations de pagination non trouvées")
+                print("❌ Conteneur incidentsList non trouvé")
                 
+            if 'incidents.js' in response.text:
+                print("✅ Script incidents.js inclus")
+            else:
+                print("❌ Script incidents.js non inclus")
         else:
-            print(f"❌ Erreur HTTP: {incidents_response.status_code}")
+            print(f"❌ Erreur accès page incidents: {response.status_code}")
     except Exception as e:
-        print(f"❌ Erreur de connexion: {e}")
+        print(f"❌ Erreur page incidents: {e}")
     
-    # Test 2: API des incidents avec différents paramètres
-    print("\n2️⃣ Test: API des incidents avec pagination")
+    # Test de l'API des incidents
+    print("\n🔌 Test de l'API des incidents...")
     try:
-        # Test avec 50 incidents par page
-        response = session.get(f"{base_url}/api/evenements?per_page=50&page=1")
+        response = session.get('http://localhost:5000/api/evenements?page=1&per_page=10')
         if response.status_code == 200:
             data = response.json()
-            if data['success']:
-                print(f"✅ Page 1 (50 incidents): {len(data['data'])} incidents sur {data['pagination']['total']} au total")
-                print(f"   📊 Pages totales: {data['pagination']['pages']}")
-                
-                # Test page 2
-                response2 = session.get(f"{base_url}/api/evenements?per_page=50&page=2")
-                if response2.status_code == 200:
-                    data2 = response2.json()
-                    if data2['success']:
-                        print(f"✅ Page 2 (50 incidents): {len(data2['data'])} incidents")
-                    else:
-                        print(f"❌ Erreur page 2: {data2.get('error', 'Erreur inconnue')}")
-            else:
-                print(f"❌ Erreur API: {data.get('error', 'Erreur inconnue')}")
+            print(f"✅ API incidents accessible")
+            print(f"   Total incidents: {data.get('total', 0)}")
+            print(f"   Incidents dans la réponse: {len(data.get('incidents', []))}")
+            
+            if data.get('incidents'):
+                incident = data['incidents'][0]
+                print(f"   Premier incident: GID={incident.get('gid')}, Type={incident.get('type_id')}, Statut={incident.get('statut')}")
         else:
-            print(f"❌ Erreur HTTP: {response.status_code}")
+            print(f"❌ Erreur API incidents: {response.status_code}")
     except Exception as e:
-        print(f"❌ Erreur de connexion: {e}")
+        print(f"❌ Erreur API incidents: {e}")
     
-    # Test 3: Test avec 100 incidents par page
-    print("\n3️⃣ Test: API avec 100 incidents par page")
+    # Test des statistiques
+    print("\n📊 Test des statistiques...")
     try:
-        response = session.get(f"{base_url}/api/evenements?per_page=100&page=1")
+        response = session.get('http://localhost:5000/api/statistiques')
         if response.status_code == 200:
             data = response.json()
-            if data['success']:
-                print(f"✅ Page 1 (100 incidents): {len(data['data'])} incidents sur {data['pagination']['total']} au total")
-                print(f"   📊 Pages totales: {data['pagination']['pages']}")
-            else:
-                print(f"❌ Erreur API: {data.get('error', 'Erreur inconnue')}")
+            print(f"✅ API statistiques accessible")
+            print(f"   Total incidents: {data.get('total_incidents', 0)}")
+            print(f"   Incidents ouverts: {data.get('incidents_ouverts', 0)}")
+            print(f"   Incidents résolus: {data.get('incidents_resolus', 0)}")
         else:
-            print(f"❌ Erreur HTTP: {response.status_code}")
+            print(f"❌ Erreur API statistiques: {response.status_code}")
     except Exception as e:
-        print(f"❌ Erreur de connexion: {e}")
-    
-    # Test 4: Test avec tous les incidents
-    print("\n4️⃣ Test: API avec tous les incidents")
-    try:
-        response = session.get(f"{base_url}/api/evenements?per_page=348")
-        if response.status_code == 200:
-            data = response.json()
-            if data['success']:
-                print(f"✅ Tous les incidents: {len(data['data'])} incidents retournés")
-                print(f"   📊 Pagination: {data['pagination']}")
-                
-                # Afficher quelques exemples
-                print(f"\n   📋 Exemples d'incidents:")
-                for i, incident in enumerate(data['data'][:3]):
-                    print(f"      {i+1}. ID: {incident['id']}, Statut: {incident['statut']}, Description: {incident['description'][:50]}...")
-            else:
-                print(f"❌ Erreur API: {data.get('error', 'Erreur inconnue')}")
-        else:
-            print(f"❌ Erreur HTTP: {response.status_code}")
-    except Exception as e:
-        print(f"❌ Erreur de connexion: {e}")
-    
-    print("\n" + "=" * 50)
-    print("🎉 Tests terminés!")
+        print(f"❌ Erreur API statistiques: {e}")
 
 if __name__ == "__main__":
     test_incidents_page() 

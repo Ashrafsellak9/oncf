@@ -23,6 +23,12 @@ const MAP_CONFIG = {
 
 // Initialisation de la carte
 function initONCFMap() {
+    // Vérifier si la carte existe déjà
+    if (map) {
+        map.remove();
+        map = null;
+    }
+    
     // Créer la carte
     map = L.map('map', {
         center: MAP_CONFIG.center,

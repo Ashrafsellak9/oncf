@@ -20,15 +20,26 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-body">
+                    <!-- Filtres rapides -->
+                    <div class="mb-3" id="quickFiltersContainer">
+                        <!-- Les filtres rapides seront générés par JavaScript -->
+                    </div>
+                    
+                    <!-- Filtres actifs -->
+                    <div class="mb-3" id="activeFiltersContainer">
+                        <!-- Les filtres actifs seront affichés ici -->
+                    </div>
+                    
+                    <!-- Filtres principaux -->
                     <div class="row align-items-end">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label for="searchGares" class="form-label">Recherche</label>
                             <input type="text" class="form-control" id="searchGares" placeholder="Nom, code ou ville...">
                         </div>
                         <div class="col-md-2">
-                            <label for="filterAxe" class="form-label">Axe</label>
-                            <select class="form-select" id="filterAxe">
-                                <option value="">Tous les axes</option>
+                            <label for="filterRegion" class="form-label">Région</label>
+                            <select class="form-select" id="filterRegion">
+                                <option value="">Toutes les régions</option>
                             </select>
                         </div>
                         <div class="col-md-2">
@@ -41,11 +52,25 @@
                             <label for="filterEtat" class="form-label">État</label>
                             <select class="form-select" id="filterEtat">
                                 <option value="">Tous les états</option>
-                                <option value="ACTIVE">Active</option>
-                                <option value="PASSIVE">Passive</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <label for="filterSection" class="form-label">Section</label>
+                            <select class="form-select" id="filterSection">
+                                <option value="">Toutes les sections</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filterVille" class="form-label">Ville</label>
+                            <select class="form-select" id="filterVille">
+                                <option value="">Toutes les villes</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Boutons d'action -->
+                    <div class="row mt-3">
+                        <div class="col-12">
                             <div class="d-flex gap-2">
                                 <button class="btn btn-primary" onclick="applyFilters()">
                                     <i class="fas fa-filter me-2"></i>Filtrer
@@ -118,12 +143,12 @@
                                 <th>
                                     <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
                                 </th>
-                                <th onclick="sortTable(1)">Nom de la Gare <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable(2)">Code <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable(3)">Type <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable(4)">Axe <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable(5)">Ville <i class="fas fa-sort"></i></th>
-                                <th onclick="sortTable(6)">État <i class="fas fa-sort"></i></th>
+                                                                 <th onclick="sortTable(1)">Nom de la Gare <i class="fas fa-sort"></i></th>
+                                 <th onclick="sortTable(2)">Code <i class="fas fa-sort"></i></th>
+                                 <th onclick="sortTable(3)">Type <i class="fas fa-sort"></i></th>
+                                 <th onclick="sortTable(4)">Région <i class="fas fa-sort"></i></th>
+                                 <th onclick="sortTable(5)">Ville <i class="fas fa-sort"></i></th>
+                                 <th onclick="sortTable(6)">État <i class="fas fa-sort"></i></th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -325,6 +350,141 @@
 
 #paginationInfo {
     font-size: 0.875rem;
+}
+
+/* Amélioration des modales de détails */
+.modal-lg .modal-body {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.table-sm td {
+    padding: 0.5rem;
+    vertical-align: middle;
+}
+
+.table-sm td:first-child {
+    font-weight: 600;
+    color: #495057;
+    width: 40%;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+/* Styles pour les sections de détails */
+.details-section {
+    margin-bottom: 1.5rem;
+}
+
+.details-section h6 {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.details-section .table {
+    margin-bottom: 0;
+}
+
+/* Styles pour les descriptions et rapports */
+.description-box {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.description-box strong {
+    color: var(--primary-color);
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive design pour les détails */
+@media (max-width: 768px) {
+    .modal-lg {
+        margin: 0.5rem;
+    }
+    
+    .table-sm td:first-child {
+        width: 35%;
+    }
+}
+
+/* Styles pour les statistiques */
+.stats-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.stats-card h6 {
+    color: white;
+    margin-bottom: 0.5rem;
+}
+
+.stats-card .badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Styles pour les incidents liés */
+.incidents-table {
+    font-size: 0.9rem;
+}
+
+.incidents-table th {
+    background: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+}
+
+.incidents-table td {
+    vertical-align: middle;
+}
+
+/* Styles pour la géométrie */
+.geometry-box {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.geometry-box code {
+    background: #e9ecef;
+    padding: 0.5rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+/* Styles pour la carte */
+.map-container {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+/* Animation pour le chargement */
+.spinner-border {
+    width: 2rem;
+    height: 2rem;
+}
+
+/* Styles pour les icônes dans les titres */
+h6 i {
+    width: 20px;
+    text-align: center;
 }
 </style>
 {% endblock %}

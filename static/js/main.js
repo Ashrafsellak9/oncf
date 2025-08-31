@@ -170,6 +170,11 @@ class ONCFGIS {
     }
 
     createGaresTypeChart() {
+        // Vérifier si nous sommes sur la page des statistiques
+        if (window.location.pathname === '/statistiques') {
+            return;
+        }
+        
         const ctx = document.getElementById('garesTypeChart');
         if (!ctx) return;
 
@@ -208,10 +213,18 @@ class ONCFGIS {
                         }
                     });
                 }
+            })
+            .catch(error => {
+                console.log('⚠️ Erreur lors du chargement des données pour le graphique des gares:', error);
             });
     }
 
     createAxesChart() {
+        // Vérifier si nous sommes sur la page des statistiques
+        if (window.location.pathname === '/statistiques') {
+            return;
+        }
+        
         const ctx = document.getElementById('axesChart');
         if (!ctx) return;
 
@@ -249,6 +262,9 @@ class ONCFGIS {
                         }
                     });
                 }
+            })
+            .catch(error => {
+                console.log('⚠️ Erreur lors du chargement des données pour le graphique des axes:', error);
             });
     }
 
@@ -262,13 +278,24 @@ class ONCFGIS {
 
     // Méthodes pour les Statistiques
     initCharts() {
-        // Initialiser les graphiques de statistiques
+        // Vérifier si nous sommes sur la page des statistiques
+        if (window.location.pathname === '/statistiques') {
+            console.log('📊 Page des statistiques détectée, initialisation des graphiques désactivée dans main.js');
+            return;
+        }
+        
+        // Initialiser les graphiques de statistiques seulement si pas sur la page statistiques
         this.createGaresTypeChart();
         this.createAxesChart();
         this.createTimelineChart();
     }
 
     createTimelineChart() {
+        // Vérifier si nous sommes sur la page des statistiques
+        if (window.location.pathname === '/statistiques') {
+            return;
+        }
+        
         const ctx = document.getElementById('timelineChart');
         if (!ctx) return;
 

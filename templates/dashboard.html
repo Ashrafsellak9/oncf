@@ -1,198 +1,357 @@
 {% extends "base.html" %}
 
-{% block title %}ONCF GIS - Dashboard{% endblock %}
+{% block title %}Tableau de Bord - ONCF EMS{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Header -->
+    <!-- En-tête de la page -->
     <div class="row mb-4">
         <div class="col-12">
-            <h1 class="h2 mb-0">
-                <i class="fas fa-tachometer-alt me-2 text-primary"></i>
-                Dashboard ONCF
-            </h1>
-            <p class="text-muted">Vue d'ensemble du réseau ferroviaire marocain</p>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <i class="fas fa-tachometer-alt text-primary me-2"></i>
+                        Tableau de Bord ONCF
+                    </h2>
+                    <p class="text-muted mb-0">Vue d'ensemble complète du réseau ferroviaire marocain</p>
+                </div>
+                <div class="text-end">
+                    <div class="badge bg-primary fs-6">
+                        <i class="fas fa-chart-line me-1"></i>
+                        Dashboard en Temps Réel
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Statistiques Principales -->
     <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="dashboard-card">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon bg-primary bg-opacity-10 rounded-circle p-3">
-                            <i class="fas fa-building fa-2x text-primary"></i>
-                        </div>
+        <div class="col-xl-2 col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-primary bg-opacity-10 rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-building fa-2x text-primary"></i>
                     </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h3 class="mb-1" id="total-gares">-</h3>
-                        <p class="text-muted mb-0">Total Gares</p>
+                    <h3 class="mb-1 fw-bold" id="totalGares">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </h3>
+                    <p class="text-muted mb-0 fw-semibold">Total Gares</p>
+                    <small class="text-success">
+                        <i class="fas fa-arrow-up me-1"></i>+12% ce mois
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-success bg-opacity-10 rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-route fa-2x text-success"></i>
+                    </div>
+                    <h3 class="mb-1 fw-bold" id="totalArcs">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </h3>
+                    <p class="text-muted mb-0 fw-semibold">Axes Ferroviaires</p>
+                    <small class="text-info">
+                        <i class="fas fa-chart-line me-1"></i>Réseau étendu
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-danger bg-opacity-10 rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                    </div>
+                    <h3 class="mb-1 fw-bold" id="totalIncidents">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </h3>
+                    <p class="text-muted mb-0 fw-semibold">Total Incidents</p>
+                    <small class="text-warning">
+                        <i class="fas fa-clock me-1"></i>En surveillance
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-warning bg-opacity-10 rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-exclamation-circle fa-2x text-warning"></i>
+                    </div>
+                    <h3 class="mb-1 fw-bold" id="incidentsOuverts">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </h3>
+                    <p class="text-muted mb-0 fw-semibold">Incidents Ouverts</p>
+                    <small class="text-danger">
+                        <i class="fas fa-exclamation me-1"></i>Nécessite attention
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-info bg-opacity-10 rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-map-marker-alt fa-2x text-info"></i>
+                    </div>
+                    <h3 class="mb-1 fw-bold" id="totalLocalisations">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </h3>
+                    <p class="text-muted mb-0 fw-semibold">Localisations</p>
+                    <small class="text-primary">
+                        <i class="fas fa-location-arrow me-1"></i>Géolocalisées
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-2 col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="stat-icon bg-secondary bg-opacity-10 rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="fas fa-database fa-2x text-secondary"></i>
+                    </div>
+                    <h3 class="mb-1 fw-bold" id="totalReferences">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                    </h3>
+                    <p class="text-muted mb-0 fw-semibold">Données Référence</p>
+                    <small class="text-secondary">
+                        <i class="fas fa-sync me-1"></i>À jour
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques et Métriques -->
+    <div class="row mb-4">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-area me-2"></i>
+                        Évolution du Réseau
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="evolutionChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="dashboard-card">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon bg-success bg-opacity-10 rounded-circle p-3">
-                            <i class="fas fa-route fa-2x text-success"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h3 class="mb-1" id="total-arcs">-</h3>
-                        <p class="text-muted mb-0">Sections de Voie</p>
-                    </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-gradient-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-doughnut me-2"></i>
+                        Répartition par Type
+                    </h5>
                 </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="dashboard-card">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon bg-info bg-opacity-10 rounded-circle p-3">
-                            <i class="fas fa-check-circle fa-2x text-info"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h3 class="mb-1" id="gares-actives">-</h3>
-                        <p class="text-muted mb-0">Gares Actives</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-xl-3 col-md-6 mb-4">
-            <div class="dashboard-card">
-                <div class="d-flex align-items-center">
-                    <div class="flex-shrink-0">
-                        <div class="stat-icon bg-warning bg-opacity-10 rounded-circle p-3">
-                            <i class="fas fa-pause-circle fa-2x text-warning"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow-1 ms-3">
-                        <h3 class="mb-1" id="gares-passives">-</h3>
-                        <p class="text-muted mb-0">Gares Passives</p>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="typeChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Graphiques -->
+    <!-- Tableaux et Données -->
     <div class="row mb-4">
         <div class="col-lg-6 mb-4">
-            <div class="chart-container">
-                <h3 class="mb-3">
-                    <i class="fas fa-chart-pie me-2 text-primary"></i>
-                    Répartition des Gares par Type
-                </h3>
-                <canvas id="garesTypeChart" height="300"></canvas>
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-gradient-info text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-table me-2"></i>
+                            Gares Récentes
+                        </h5>
+                        <a href="{{ url_for('gares') }}" class="btn btn-light btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Voir Toutes
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th><i class="fas fa-building me-1"></i>Gare</th>
+                                    <th><i class="fas fa-code me-1"></i>Code</th>
+                                    <th><i class="fas fa-tag me-1"></i>Type</th>
+                                    <th><i class="fas fa-map-marker-alt me-1"></i>Ville</th>
+                                    <th><i class="fas fa-circle me-1"></i>État</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentGaresTable">
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Chargement...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Chargement des données...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="col-lg-6 mb-4">
-            <div class="chart-container">
-                <h3 class="mb-3">
-                    <i class="fas fa-chart-bar me-2 text-success"></i>
-                    Répartition par Axe Ferroviaire
-                </h3>
-                <canvas id="axesChart" height="300"></canvas>
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-gradient-warning text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Incidents Récents
+                        </h5>
+                        <a href="{{ url_for('incidents') }}" class="btn btn-light btn-sm">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Voir Tous
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th><i class="fas fa-calendar me-1"></i>Date</th>
+                                    <th><i class="fas fa-exclamation me-1"></i>Type</th>
+                                    <th><i class="fas fa-map-marker-alt me-1"></i>Localisation</th>
+                                    <th><i class="fas fa-circle me-1"></i>Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentIncidentsTable">
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="spinner-border text-warning" role="status">
+                                            <span class="visually-hidden">Chargement...</span>
+                                        </div>
+                                        <p class="mt-2 text-muted">Chargement des données...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Tableau des Gares Récentes -->
+    <!-- Alertes et Activité -->
     <div class="row">
-        <div class="col-12">
-            <div class="dashboard-card">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="mb-0">
-                        <i class="fas fa-table me-2 text-primary"></i>
-                        Gares Récentes
-                    </h3>
-                    <a href="{{ url_for('gares') }}" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-external-link-alt me-1"></i>
-                        Voir Toutes
-                    </a>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-gradient-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Alertes Système
+                    </h5>
                 </div>
-                
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Nom de la Gare</th>
-                                <th>Code</th>
-                                <th>Type</th>
-                                <th>Axe</th>
-                                <th>Ville</th>
-                                <th>État</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recentGaresTable">
-                            <tr>
-                                <td colspan="7" class="text-center">
-                                    <div class="loading"></div>
-                                    Chargement des données...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Alertes et Notifications -->
-    <div class="row mt-4">
-        <div class="col-lg-6 mb-4">
-            <div class="dashboard-card">
-                <h3 class="mb-3">
-                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
-                    Alertes Système
-                </h3>
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Système opérationnel</strong> - Toutes les fonctionnalités sont disponibles
-                </div>
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle me-2"></i>
-                    <strong>Base de données</strong> - Connexion établie avec succès
+                <div class="card-body">
+                    <div id="systemAlerts">
+                        <div class="alert alert-success border-0">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Système opérationnel</strong>
+                            <br><small class="text-muted">Toutes les fonctionnalités disponibles</small>
+                        </div>
+                        <div class="alert alert-info border-0">
+                            <i class="fas fa-database me-2"></i>
+                            <strong>Base de données</strong>
+                            <br><small class="text-muted">Connexion établie avec succès</small>
+                        </div>
+                        <div class="alert alert-warning border-0">
+                            <i class="fas fa-sync me-2"></i>
+                            <strong>Synchronisation</strong>
+                            <br><small class="text-muted">Mise à jour en cours...</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-6 mb-4">
-            <div class="dashboard-card">
-                <h3 class="mb-3">
-                    <i class="fas fa-clock me-2 text-info"></i>
-                    Activité Récente
-                </h3>
-                <div class="timeline">
-                    <div class="timeline-item">
-                        <div class="timeline-marker bg-primary"></div>
-                        <div class="timeline-content">
-                            <h6 class="mb-1">Mise à jour des données</h6>
-                            <p class="text-muted mb-0">Il y a 5 minutes</p>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-gradient-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2"></i>
+                        Activité Récente
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Mise à jour des données</h6>
+                                <p class="text-muted mb-0">Il y a 5 minutes</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Nouvelle gare ajoutée</h6>
+                                <p class="text-muted mb-0">Il y a 1 heure</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Sauvegarde automatique</h6>
+                                <p class="text-muted mb-0">Il y a 2 heures</p>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Incident résolu</h6>
+                                <p class="text-muted mb-0">Il y a 3 heures</p>
+                            </div>
                         </div>
                     </div>
-                    <div class="timeline-item">
-                        <div class="timeline-marker bg-success"></div>
-                        <div class="timeline-content">
-                            <h6 class="mb-1">Nouvelle gare ajoutée</h6>
-                            <p class="text-muted mb-0">Il y a 1 heure</p>
-                        </div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-marker bg-info"></div>
-                        <div class="timeline-content">
-                            <h6 class="mb-1">Sauvegarde automatique</h6>
-                            <p class="text-muted mb-0">Il y a 2 heures</p>
-                        </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-gradient-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tasks me-2"></i>
+                        Actions Rapides
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('carte') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-map me-2"></i>
+                            Carte Interactive
+                        </a>
+                        <a href="{{ url_for('statistiques') }}" class="btn btn-outline-success">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            Statistiques
+                        </a>
+                        <a href="{{ url_for('incidents') }}" class="btn btn-outline-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Gestion Incidents
+                        </a>
+                        <a href="{{ url_for('reference') }}" class="btn btn-outline-info">
+                            <i class="fas fa-database me-2"></i>
+                            Données Référence
+                        </a>
                     </div>
                 </div>
             </div>
@@ -207,8 +366,8 @@
 {% block extra_css %}
 <style>
 .stat-icon {
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -250,14 +409,11 @@
     font-weight: 600;
 }
 
-.dashboard-card h3 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary-color);
+.card-header {
+    border-bottom: none;
 }
 
 .alert {
-    border: none;
     border-radius: 10px;
     margin-bottom: 1rem;
 }
@@ -265,55 +421,29 @@
 .alert:last-child {
     margin-bottom: 0;
 }
+
+.table th {
+    font-weight: 600;
+    color: #495057;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-success:hover,
+.btn-outline-warning:hover,
+.btn-outline-info:hover {
+    transform: translateY(-1px);
+    transition: transform 0.2s ease;
+}
 </style>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-// Charger les gares récentes
-document.addEventListener('DOMContentLoaded', function() {
-    fetch('/api/gares')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const recentGares = data.data.slice(0, 5); // Prendre les 5 premières
-                const tableBody = document.getElementById('recentGaresTable');
-                
-                tableBody.innerHTML = '';
-                recentGares.forEach(gare => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td><strong>${gare.nom || 'N/A'}</strong></td>
-                        <td><code>${gare.code || 'N/A'}</code></td>
-                        <td>${gare.type || 'N/A'}</td>
-                        <td>${gare.axe || 'N/A'}</td>
-                        <td>${gare.ville || 'N/A'}</td>
-                        <td>
-                            <span class="badge bg-${gare.etat === 'ACTIVE' ? 'success' : 'secondary'}">
-                                ${gare.etat || 'N/A'}
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" onclick="showGareDetails(${gare.id})">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Erreur lors du chargement des gares récentes:', error);
-            document.getElementById('recentGaresTable').innerHTML = `
-                <tr>
-                    <td colspan="7" class="text-center text-danger">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
-                        Erreur lors du chargement des données
-                    </td>
-                </tr>
-            `;
-        });
-});
-</script>
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Script du dashboard -->
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 {% endblock %} 

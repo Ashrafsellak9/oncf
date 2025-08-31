@@ -22,8 +22,13 @@ load_dotenv()
 
 app = Flask(__name__)
 
+def get_db_connection():
+    """Créer une connexion à la base de données PostgreSQL"""
+    import psycopg2
+    return psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+
 # Configuration de la base de données
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_ems_db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'oncf-secret-key-2024')
 
@@ -43,6 +48,7 @@ def load_user(user_id):
 # Modèle User pour l'authentification
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
+    __table_args__ = {'schema': 'gpr'}
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -85,13 +91,14 @@ class GrapheArc(db.Model):
     __table_args__ = {'schema': 'gpr'}
     
     id = db.Column(db.Integer, primary_key=True)
-    axe = db.Column(db.String)
-    cumuld = db.Column(db.Numeric)
-    cumulf = db.Column(db.Numeric)
-    plod = db.Column(db.String)
-    absd = db.Column(db.Numeric)
-    plof = db.Column(db.String)
-    absf = db.Column(db.Numeric)
+    axe_id = db.Column(db.Integer)
+    nom_axe = db.Column(db.String(300))
+    pk_debut = db.Column(db.Numeric(15,6))
+    pk_fin = db.Column(db.Numeric(15,6))
+    plod = db.Column(db.String(100))
+    plof = db.Column(db.String(100))
+    absd = db.Column(db.Numeric(15,6))
+    absf = db.Column(db.Numeric(15,6))
     geometrie = db.Column(db.Text)  # Geometry as text
 
 class GareRef(db.Model):
@@ -99,22 +106,22 @@ class GareRef(db.Model):
     __table_args__ = {'schema': 'gpr'}
     
     id = db.Column(db.Integer, primary_key=True)
-    axe = db.Column(db.String)
-    plod = db.Column(db.String)
-    absd = db.Column(db.String)
+    nomgarefr = db.Column(db.String(300))
+    typegare = db.Column(db.String(100))
+    pk_debut = db.Column(db.Integer)
     geometrie = db.Column(db.Text)
     geometrie_dec = db.Column(db.Text)
-    codegare = db.Column(db.String)
-    codeoperationnel = db.Column(db.String)
-    codereseau = db.Column(db.String)
-    nomgarefr = db.Column(db.String)
-    typegare = db.Column(db.String)
-    publishid = db.Column(db.String)
-    sivtypegare = db.Column(db.String)
-    num_pk = db.Column(db.String)
-    idville = db.Column(db.Integer)
-    villes_ville = db.Column(db.String)
-    etat = db.Column(db.String)
+    plod = db.Column(db.Integer)
+    plof = db.Column(db.Integer)
+    commentaire = db.Column(db.Text)
+    section = db.Column(db.String(200))
+    etat = db.Column(db.String(100))
+    code_gare = db.Column(db.String(100))
+    type_commercial = db.Column(db.String(100))
+    distance = db.Column(db.Integer)
+    ville = db.Column(db.String(200))
+    region = db.Column(db.String(200))
+    statut = db.Column(db.String(100))
 
 # Modèles corrects basés sur la vraie structure des tables
 class GeEvenement(db.Model):
@@ -176,6 +183,38 @@ class RefSousTypes(db.Model):
     date_maj = db.Column(db.DateTime)
     intitule = db.Column(db.String)
     type_id = db.Column(db.Integer)
+    etat = db.Column(db.Boolean)
+    deleted = db.Column(db.Boolean)
+
+class RefSystemes(db.Model):
+    __tablename__ = 'ref_systemes'
+    __table_args__ = {'schema': 'gpr'}
+    
+    id = db.Column(db.Integer, primary_key=True)
+    date_maj = db.Column(db.DateTime)
+    intitule = db.Column(db.String)
+    entite_type_id = db.Column(db.Integer)
+    etat = db.Column(db.Boolean)
+    deleted = db.Column(db.Boolean)
+
+class RefSources(db.Model):
+    __tablename__ = 'ref_sources'
+    __table_args__ = {'schema': 'gpr'}
+    
+    id = db.Column(db.Integer, primary_key=True)
+    date_maj = db.Column(db.DateTime)
+    intitule = db.Column(db.String)
+    entite_type_id = db.Column(db.Integer)
+    etat = db.Column(db.Boolean)
+    deleted = db.Column(db.Boolean)
+
+class RefEntites(db.Model):
+    __tablename__ = 'ref_entites'
+    __table_args__ = {'schema': 'gpr'}
+    
+    id = db.Column(db.Integer, primary_key=True)
+    date_maj = db.Column(db.DateTime)
+    intitule = db.Column(db.String)
     etat = db.Column(db.Boolean)
     deleted = db.Column(db.Boolean)
 
@@ -383,13 +422,28 @@ def api_gares():
             query = query.filter(
                 db.or_(
                     GareRef.nomgarefr.ilike(f'%{search}%'),
-                    GareRef.codegare.ilike(f'%{search}%'),
-                    GareRef.villes_ville.ilike(f'%{search}%')
+                    GareRef.code_gare.ilike(f'%{search}%'),
+                    GareRef.ville.ilike(f'%{search}%'),
+                    GareRef.region.ilike(f'%{search}%'),
+                    GareRef.section.ilike(f'%{search}%')
                 )
             )
         
-        if axe:
-            query = query.filter(GareRef.axe == axe)
+        # Filtres spécifiques
+        if request.args.get('section'):
+            query = query.filter(GareRef.section == request.args.get('section'))
+        
+        if request.args.get('type'):
+            query = query.filter(GareRef.typegare == request.args.get('type'))
+        
+        if request.args.get('etat'):
+            query = query.filter(GareRef.etat == request.args.get('etat'))
+        
+        if request.args.get('region'):
+            query = query.filter(GareRef.region == request.args.get('region'))
+        
+        if request.args.get('ville'):
+            query = query.filter(GareRef.ville == request.args.get('ville'))
         
         if type_gare:
             query = query.filter(GareRef.typegare == type_gare)
@@ -420,14 +474,21 @@ def api_gares():
             gare_dict = {
                 'id': gare.id,
                 'nom': gare.nomgarefr,
-                'code': gare.codegare,
+                'code': gare.code_gare,
                 'type': gare.typegare,
-                'axe': gare.axe,
-                'ville': gare.villes_ville,
+                'ville': gare.ville,
                 'etat': gare.etat,
-                'codeoperationnel': gare.codeoperationnel,
-                'codereseau': gare.codereseau,
-                'geometrie': geometrie_wkt
+                'section': gare.section,
+                'region': gare.region,
+                'pk_debut': gare.pk_debut,
+                'plod': gare.plod,
+                'plof': gare.plof,
+                'distance': gare.distance,
+                'commentaire': gare.commentaire,
+                'type_commercial': gare.type_commercial,
+                'statut': gare.statut,
+                'geometrie': geometrie_wkt,
+                'geometrie_dec': gare.geometrie_dec
             }
             gares_data.append(gare_dict)
         
@@ -453,9 +514,9 @@ def api_gares():
 def api_gares_filters():
     """Récupérer les options de filtrage pour les gares"""
     try:
-        # Axes uniques
-        axes = db.session.query(GareRef.axe).distinct().filter(GareRef.axe.isnot(None)).all()
-        axes_list = [axe[0] for axe in axes if axe[0]]
+        # Sections uniques
+        sections = db.session.query(GareRef.section).distinct().filter(GareRef.section.isnot(None)).all()
+        sections_list = [section[0] for section in sections if section[0]]
         
         # Types de gares uniques
         types = db.session.query(GareRef.typegare).distinct().filter(GareRef.typegare.isnot(None)).all()
@@ -465,12 +526,61 @@ def api_gares_filters():
         etats = db.session.query(GareRef.etat).distinct().filter(GareRef.etat.isnot(None)).all()
         etats_list = [etat[0] for etat in etats if etat[0]]
         
+        # Régions uniques
+        regions = db.session.query(GareRef.region).distinct().filter(GareRef.region.isnot(None)).all()
+        regions_list = [region[0] for region in regions if region[0]]
+        
+        # Villes uniques
+        villes = db.session.query(GareRef.ville).distinct().filter(GareRef.ville.isnot(None)).all()
+        villes_list = [ville[0] for ville in villes if ville[0]]
+        
         return jsonify({
             'success': True,
             'data': {
-                'axes': axes_list,
+                'sections': sections_list,
                 'types': types_list,
-                'etats': etats_list
+                'etats': etats_list,
+                'regions': regions_list,
+                'villes': villes_list
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/gares/stats')
+def api_gares_stats():
+    """Récupérer les statistiques globales des gares"""
+    try:
+        # Compter le total de toutes les gares
+        total_gares = GareRef.query.count()
+        
+        # Compter les gares par état
+        active_count = 0
+        passive_count = 0
+        
+        # Récupérer toutes les gares pour calculer les statistiques
+        all_gares = GareRef.query.all()
+        
+        for gare in all_gares:
+            if gare.etat:
+                etat = str(gare.etat).lower()
+                if 'active' in etat or 'actif' in etat:
+                    active_count += 1
+                elif 'passive' in etat or 'passif' in etat:
+                    passive_count += 1
+                else:
+                    # Par défaut, considérer comme actif
+                    active_count += 1
+            else:
+                # Si pas d'état défini, considérer comme actif
+                active_count += 1
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_gares': total_gares,
+                'active_gares': active_count,
+                'passive_gares': passive_count
             }
         })
     except Exception as e:
@@ -547,6 +657,118 @@ def api_update_gare(gare_id):
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/gares/<int:gare_id>/details')
+def api_gare_details(gare_id):
+    """Récupérer les détails complets d'une gare"""
+    try:
+        import psycopg2.extras
+        
+        # Connexion à la base de données
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Récupérer les détails de la gare
+        cursor.execute("""
+            SELECT 
+                id, nomgarefr, typegare, pk_debut, geometrie, geometrie_dec, plod, plof, 
+                commentaire, section, etat, code_gare, type_commercial, distance, ville, 
+                region, statut
+            FROM gpr.gpd_gares_ref 
+            WHERE id = %s
+        """, (gare_id,))
+        
+        gare_data = cursor.fetchone()
+        
+        if not gare_data:
+            cursor.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Gare non trouvée'})
+        
+        # Récupérer les statistiques des incidents pour cette gare
+        try:
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_incidents,
+                    COUNT(CASE WHEN etat ILIKE '%OUVERT%' OR etat ILIKE '%ACTIF%' THEN 1 END) as incidents_ouverts,
+                    COUNT(CASE WHEN etat ILIKE '%FERME%' OR etat ILIKE '%RESOLU%' THEN 1 END) as incidents_fermes
+                FROM gpr.ge_evenement 
+                WHERE localisation_id = %s OR gare_debut_id = %s OR gare_fin_id = %s
+            """, (gare_id, gare_id, gare_id))
+            
+            stats_data = cursor.fetchone()
+        except Exception as e:
+            print(f"Erreur lors de la récupération des statistiques: {e}")
+            stats_data = None
+        
+        # Récupérer les incidents récents pour cette gare
+        try:
+            cursor.execute("""
+                SELECT 
+                    id, date_debut, heure_debut, etat, entite, resume
+                FROM gpr.ge_evenement 
+                WHERE localisation_id = %s OR gare_debut_id = %s OR gare_fin_id = %s
+                ORDER BY date_debut DESC 
+                LIMIT 5
+            """, (gare_id, gare_id, gare_id))
+            
+            incidents_data = cursor.fetchall()
+        except Exception as e:
+            print(f"Erreur lors de la récupération des incidents: {e}")
+            incidents_data = []
+        
+        # Pour l'instant, on ne récupère pas les informations de l'axe
+        axe_data = None
+        
+        cursor.close()
+        conn.close()
+        
+        # Préparer les données de réponse
+        gare_details = {
+            'id': gare_data['id'],
+            'nom': gare_data['nomgarefr'],
+            'code_gare': gare_data['code_gare'],
+            'code_operationnel': None,  # Pas de champ code_operationnel
+            'code_reseau': None,  # Pas de champ code_reseau
+            'type': gare_data['typegare'],
+            'type_commercial': gare_data['type_commercial'],
+            'etat': gare_data['etat'],
+            'statut': gare_data['statut'] or ('Active' if gare_data['etat'] and 'ACTIVE' in gare_data['etat'].upper() else 'Passive'),
+            'region': gare_data['region'],
+            'ville': gare_data['ville'] if gare_data['ville'] and gare_data['ville'] != '0.0' else 'Non définie',
+            'section': gare_data['section'],
+            'pk_debut': float(gare_data['pk_debut']) if gare_data['pk_debut'] else None,
+            'pk_fin': float(gare_data['plof']) if gare_data['plof'] else None,
+            'distance': float(gare_data['distance']) if gare_data['distance'] else None,
+            'plod': gare_data['plod'],
+            'plof': gare_data['plof'],
+            'geometrie': gare_data['geometrie'],
+            'geometrie_dec': gare_data['geometrie_dec'],
+            'commentaire': gare_data['commentaire'],
+            'statistiques': {
+                'total_incidents': stats_data[0] if stats_data else 0,
+                'incidents_ouverts': stats_data[1] if stats_data else 0,
+                'incidents_fermes': stats_data[2] if stats_data else 0
+            },
+            'incidents': [
+                {
+                    'id': incident[0],
+                    'date_debut': incident[1].isoformat() if incident[1] else None,
+                    'heure_debut': incident[2],
+                    'etat': incident[3],
+                    'entite': incident[4],
+                    'resume': incident[5]
+                }
+                for incident in incidents_data
+            ],
+            'axe_info': None
+        }
+        
+        return jsonify({'success': True, 'data': gare_details})
+        
+    except Exception as e:
+        print(f"Erreur lors de la récupération des détails de la gare: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/gares/<int:gare_id>', methods=['DELETE'])
@@ -651,43 +873,172 @@ def api_arcs():
 @app.route('/api/statistiques')
 def api_statistiques():
     try:
-        # Statistiques des gares
-        total_gares = GareRef.query.count()
-        gares_par_type = db.session.query(GareRef.typegare, db.func.count(GareRef.id)).group_by(GareRef.typegare).all()
-        gares_par_axe = db.session.query(GareRef.axe, db.func.count(GareRef.id)).group_by(GareRef.axe).all()
-        
-        # Statistiques des arcs
-        total_arcs = GrapheArc.query.count()
-        arcs_par_axe = db.session.query(GrapheArc.axe, db.func.count(GrapheArc.id)).group_by(GrapheArc.axe).all()
-        
-        # Statistiques des événements/incidents avec SQL direct
         import psycopg2.extras
-        conn_stat = psycopg2.connect(os.getenv('DATABASE_URL'))
-        cursor_stat = conn_stat.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
-        # Compter les événements
-        cursor_stat.execute("SELECT COUNT(*) FROM gpr.ge_evenement")
-        total_evenements = cursor_stat.fetchone()[0]
+        # Récupérer les paramètres de filtrage
+        period = request.args.get('period', 'all')
+        region = request.args.get('region', '')
+        data_type = request.args.get('type', 'gares')
+        status = request.args.get('status', '')
+        gare_type = request.args.get('gare_type', '')
+        search = request.args.get('search', '')
+        sort_by = request.args.get('sort', 'name')
+        limit = request.args.get('limit', '25', type=int)
+        
+        print(f"🔍 Filtres reçus: period={period}, region={region}, type={data_type}, status={status}, gare_type={gare_type}, search={search}")
+        
+        # Connexion à la base de données
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Statistiques des gares avec filtres
+        gares_where_conditions = []
+        gares_params = []
+        
+        if region:
+            gares_where_conditions.append("region ILIKE %s")
+            gares_params.append(f'%{region}%')
+        
+        if status:
+            gares_where_conditions.append("etat ILIKE %s")
+            gares_params.append(f'%{status}%')
+        
+        if search:
+            gares_where_conditions.append("(nomgarefr ILIKE %s OR code_gare ILIKE %s OR ville ILIKE %s)")
+            search_param = f'%{search}%'
+            gares_params.extend([search_param, search_param, search_param])
+        
+        gares_where_clause = ""
+        if gares_where_conditions:
+            gares_where_clause = "WHERE " + " AND ".join(gares_where_conditions)
+        
+        cursor.execute(f"SELECT COUNT(*) FROM gpr.gpd_gares_ref {gares_where_clause}", gares_params)
+        total_gares = cursor.fetchone()[0]
+        
+        # Gares par type avec noms descriptifs et filtres
+        gares_type_query = f"""
+            SELECT 
+                CASE 
+                    WHEN typegare = '141' THEN 'Gare Principale'
+                    WHEN typegare = '132' THEN 'Gare Secondaire'
+                    WHEN typegare = '85' THEN 'Gare de Passage'
+                    WHEN typegare = '15' THEN 'Halte'
+                    WHEN typegare = '0' THEN 'Point d''Arrêt'
+                    WHEN typegare = '18' THEN 'Gare de Triage'
+                    WHEN typegare = '89' THEN 'Gare de Marchandises'
+                    WHEN typegare = '1' THEN 'Gare de Voyageurs'
+                    WHEN typegare = '7' THEN 'Gare de Correspondance'
+                    WHEN typegare = '88' THEN 'Gare de Transit'
+                    WHEN typegare = '101' THEN 'Gare de Banlieue'
+                    WHEN typegare = '24' THEN 'Gare de Proximité'
+                    WHEN typegare = '52' THEN 'Gare Régionale'
+                    WHEN typegare = '31' THEN 'Gare Intercité'
+                    WHEN typegare = '35' THEN 'Gare TGV'
+                    WHEN typegare = '74' THEN 'Gare de Cargo'
+                    WHEN typegare = '167' THEN 'Gare de Maintenance'
+                    WHEN typegare = '61' THEN 'Gare de Dépôt'
+                    WHEN typegare = '177' THEN 'Gare de Service'
+                    WHEN typegare = '209' THEN 'Gare de Contrôle'
+                    WHEN typegare = '94' THEN 'Gare de Sécurité'
+                    WHEN typegare = '96' THEN 'Gare de Surveillance'
+                    WHEN typegare = '5' THEN 'Gare de Transit'
+                    WHEN typegare = '116' THEN 'Gare de Distribution'
+                    WHEN typegare = '107' THEN 'Gare de Collecte'
+                    WHEN typegare = '64' THEN 'Gare de Manœuvre'
+                    WHEN typegare = '10' THEN 'Gare de Passage'
+                    WHEN typegare = '11' THEN 'Gare de Croisement'
+                    WHEN typegare = '58' THEN 'Gare de Raccordement'
+                    ELSE CONCAT('Type ', typegare)
+                END as type_name,
+                COUNT(*) 
+            FROM gpr.gpd_gares_ref 
+            {gares_where_clause}
+            GROUP BY typegare 
+            ORDER BY COUNT(*) DESC
+        """
+        cursor.execute(gares_type_query, gares_params)
+        gares_par_type = cursor.fetchall()
+        
+        # Gares par région avec filtres
+        gares_region_query = f"""
+            SELECT region, COUNT(*) 
+            FROM gpr.gpd_gares_ref 
+            {gares_where_clause}
+            GROUP BY region 
+            ORDER BY COUNT(*) DESC
+        """
+        cursor.execute(gares_region_query, gares_params)
+        gares_par_region = cursor.fetchall()
+        
+        # Statistiques des arcs/axes
+        cursor.execute("SELECT COUNT(*) FROM gpr.graphe_arc")
+        total_arcs = cursor.fetchone()[0]
+        
+        # Arcs par axe
+        cursor.execute("""
+            SELECT nom_axe, COUNT(*) 
+            FROM gpr.graphe_arc 
+            GROUP BY nom_axe 
+            ORDER BY COUNT(*) DESC
+        """)
+        arcs_par_axe = cursor.fetchall()
+        
+        # Statistiques des événements/incidents
+        cursor.execute("SELECT COUNT(*) FROM gpr.ge_evenement")
+        total_evenements = cursor.fetchone()[0]
+        
+        # Incidents ouverts (avec statut OUVERT ou similaire)
+        cursor.execute("""
+            SELECT COUNT(*) 
+            FROM gpr.ge_evenement 
+            WHERE etat ILIKE '%OUVERT%' OR etat ILIKE '%ACTIF%' OR etat ILIKE '%EN_COURS%'
+        """)
+        incidents_ouverts = cursor.fetchone()[0]
         
         # Événements par statut
-        cursor_stat.execute("SELECT etat, COUNT(*) FROM gpr.ge_evenement GROUP BY etat")
-        evenements_par_statut = cursor_stat.fetchall()
+        cursor.execute("""
+            SELECT etat, COUNT(*) 
+            FROM gpr.ge_evenement 
+            GROUP BY etat 
+            ORDER BY COUNT(*) DESC
+        """)
+        evenements_par_statut = cursor.fetchall()
         
-        # Statistiques des types d'incidents
-        cursor_stat.execute("SELECT COUNT(*) FROM gpr.ref_types")
-        total_types = cursor_stat.fetchone()[0]
+        # Statistiques des types de référence
+        cursor.execute("SELECT COUNT(*) FROM gpr.ref_types")
+        total_types = cursor.fetchone()[0]
         
-        cursor_stat.execute("SELECT COUNT(*) FROM gpr.ref_types WHERE etat = true")
-        types_actifs = cursor_stat.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM gpr.ref_types WHERE etat = 't' OR etat IS NULL")
+        types_actifs = cursor.fetchone()[0]
         
-        cursor_stat.close()
-        conn_stat.close()
+        # Statistiques des sous-types
+        cursor.execute("SELECT COUNT(*) FROM gpr.ref_sous_types")
+        total_sous_types = cursor.fetchone()[0]
+        
+        # Statistiques des sources
+        cursor.execute("SELECT COUNT(*) FROM gpr.ref_sources")
+        total_sources = cursor.fetchone()[0]
+        
+        # Statistiques des systèmes
+        cursor.execute("SELECT COUNT(*) FROM gpr.ref_systemes")
+        total_systemes = cursor.fetchone()[0]
+        
+        # Statistiques des entités
+        cursor.execute("SELECT COUNT(*) FROM gpr.ref_entites")
+        total_entites = cursor.fetchone()[0]
+        
+        # Statistiques des localisations
+        cursor.execute("SELECT COUNT(*) FROM gpr.ge_localisation")
+        total_localisations = cursor.fetchone()[0]
+        
+        cursor.close()
+        conn.close()
         
         stats = {
             'gares': {
                 'total': total_gares,
                 'par_type': [{'type': t[0] or 'Non défini', 'count': t[1]} for t in gares_par_type],
-                'par_axe': [{'axe': a[0] or 'Non défini', 'count': a[1]} for a in gares_par_axe]
+                'par_region': [{'region': r[0] or 'Non définie', 'count': r[1]} for r in gares_par_region]
             },
             'arcs': {
                 'total': total_arcs,
@@ -695,11 +1046,44 @@ def api_statistiques():
             },
             'evenements': {
                 'total': total_evenements,
-                'par_statut': [{'statut': s['etat'] or 'Non défini', 'count': s['count']} for s in evenements_par_statut]
+                'ouverts': incidents_ouverts,
+                'par_statut': [{'statut': s[0] or 'Non défini', 'count': s[1]} for s in evenements_par_statut]
             },
-            'types_incidents': {
-                'total': total_types,
-                'actifs': types_actifs
+            'localisations': {
+                'total': total_localisations
+            },
+            'reference': {
+                'types': {
+                    'total': total_types,
+                    'actifs': types_actifs
+                },
+                'sous_types': {
+                    'total': total_sous_types
+                },
+                'sources': {
+                    'total': total_sources
+                },
+                'systemes': {
+                    'total': total_systemes
+                },
+                'entites': {
+                    'total': total_entites
+                }
+            },
+            'ref_types': {
+                'total': total_types
+            },
+            'ref_sous_types': {
+                'total': total_sous_types
+            },
+            'ref_sources': {
+                'total': total_sources
+            },
+            'ref_systemes': {
+                'total': total_systemes
+            },
+            'ref_entites': {
+                'total': total_entites
             }
         }
         
@@ -713,31 +1097,67 @@ def api_evenements():
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 50, type=int)
         statut = request.args.get('statut', '')
+        search = request.args.get('search', '')
+        period = request.args.get('period', '')
         
         # Utiliser des requêtes SQL directes
         import psycopg2.extras
-        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # Construire la requête avec filtres
-        where_clause = ""
+        where_conditions = []
         params = []
+        
         if statut:
-            where_clause = "WHERE e.etat ILIKE %s"
+            where_conditions.append("e.etat ILIKE %s")
             params.append(f'%{statut}%')
+        
+        if search:
+            where_conditions.append("(e.resume ILIKE %s OR e.commentaire ILIKE %s OR e.entite ILIKE %s)")
+            search_param = f'%{search}%'
+            params.extend([search_param, search_param, search_param])
+        
+        if period:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            
+            if period == 'today':
+                where_conditions.append("DATE(e.date_debut) = CURRENT_DATE")
+            elif period == 'week':
+                week_ago = now - timedelta(days=7)
+                where_conditions.append("e.date_debut >= %s")
+                params.append(week_ago.date())
+            elif period == 'month':
+                where_conditions.append("EXTRACT(MONTH FROM e.date_debut) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM e.date_debut) = EXTRACT(YEAR FROM CURRENT_DATE)")
+            elif period == 'year':
+                where_conditions.append("EXTRACT(YEAR FROM e.date_debut) = EXTRACT(YEAR FROM CURRENT_DATE)")
+        
+        where_clause = ""
+        if where_conditions:
+            where_clause = "WHERE " + " AND ".join(where_conditions)
         
         # Compter le total
         cursor.execute(f"SELECT COUNT(*) FROM gpr.ge_evenement e {where_clause}", params)
         total = cursor.fetchone()[0]
         
-        # Récupérer les données paginées avec localisation
+        # Récupérer les données paginées avec les noms des références
         offset = (page - 1) * per_page
         cursor.execute(f"""
             SELECT e.id, e.date_debut, e.date_fin, e.heure_debut, e.heure_fin, e.etat, 
-                   e.resume, e.commentaire, e.extrait, e.type_id, e.sous_type_id,
-                   l.id as localisation_id, l.gare_debut_id, l.gare_fin_id, l.pk_debut, l.pk_fin
+                   e.resume, e.type_id, e.sous_type_id, e.source_id,
+                   e.entite, e.impact_service, e.commentaire,
+                   t.intitule as type_name,
+                   st.intitule as sous_type_name,
+                   s.intitule as source_name,
+                   sys.intitule as system_name,
+                   ent.intitule as entite_name
             FROM gpr.ge_evenement e
-            LEFT JOIN gpr.ge_localisation l ON e.id = l.evenement_id
+            LEFT JOIN gpr.ref_types t ON e.type_id = t.id
+            LEFT JOIN gpr.ref_sous_types st ON e.sous_type_id = st.id
+            LEFT JOIN gpr.ref_sources s ON e.source_id = s.id
+            LEFT JOIN gpr.ref_systemes sys ON e.system_id = sys.id
+            LEFT JOIN gpr.ref_entites ent ON e.entite_id = ent.id
             {where_clause}
             ORDER BY e.date_debut DESC 
             LIMIT %s OFFSET %s
@@ -747,7 +1167,7 @@ def api_evenements():
         
         evenements_data = []
         for evt in evenements:
-            description = evt['resume'] or evt['commentaire'] or evt['extrait'] or 'Aucune description'
+            description = evt['resume'] or evt['commentaire'] or 'Aucune description'
             if len(description) > 200:
                 description = description[:200] + '...'
             
@@ -806,11 +1226,15 @@ def api_evenements():
                 'statut': evt['etat'],
                 'description': description,
                 'type_id': evt['type_id'],
-                'localisation_id': evt['localisation_id'],
-                'gare_debut_id': evt['gare_debut_id'],
-                'gare_fin_id': evt['gare_fin_id'],
-                'pk_debut': evt['pk_debut'],
-                'pk_fin': evt['pk_fin'],
+                'type_name': evt['type_name'],
+                'sous_type_id': evt['sous_type_id'],
+                'sous_type_name': evt['sous_type_name'],
+                'source_id': evt['source_id'],
+                'source_name': evt['source_name'],
+                'system_name': evt['system_name'],
+                'entite': evt['entite'],
+                'entite_name': evt['entite_name'],
+                'impact_service': evt['impact_service'],
                 'geometrie': incident_coords,
                 'location_name': incident_location
             }
@@ -838,7 +1262,7 @@ def api_evenements():
 def api_types_incidents():
     try:
         import psycopg2.extras
-        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         cursor.execute("""
@@ -871,7 +1295,7 @@ def api_types_incidents():
 def api_localisations():
     try:
         import psycopg2.extras
-        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         cursor.execute("""
@@ -917,7 +1341,7 @@ def api_create_evenement():
                 return jsonify({'success': False, 'error': f'Le champ {field} est requis'})
         
         import psycopg2.extras
-        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # Insérer l'événement
@@ -971,13 +1395,14 @@ def api_update_evenement(evenement_id):
         data = request.get_json()
         
         import psycopg2.extras
-        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # Mettre à jour l'événement
         update_fields = []
         params = []
         
+        # Champs de base
         if 'date_debut' in data:
             update_fields.append('date_debut = %s')
             params.append(data['date_debut'])
@@ -993,15 +1418,47 @@ def api_update_evenement(evenement_id):
         if 'resume' in data:
             update_fields.append('resume = %s')
             params.append(data['resume'])
+        if 'commentaire' in data:
+            update_fields.append('commentaire = %s')
+            params.append(data['commentaire'])
         if 'etat' in data:
             update_fields.append('etat = %s')
             params.append(data['etat'])
+        if 'impact_service' in data:
+            update_fields.append('impact_service = %s')
+            params.append(data['impact_service'])
+        if 'fonction' in data:
+            update_fields.append('fonction = %s')
+            params.append(data['fonction'])
+        if 'important' in data:
+            update_fields.append('important = %s')
+            params.append(data['important'])
+        
+        # Champs de référence
         if 'type_id' in data:
             update_fields.append('type_id = %s')
             params.append(data['type_id'])
         if 'sous_type_id' in data:
             update_fields.append('sous_type_id = %s')
             params.append(data['sous_type_id'])
+        if 'source_id' in data:
+            update_fields.append('source_id = %s')
+            params.append(data['source_id'])
+        if 'system_id' in data:
+            update_fields.append('system_id = %s')
+            params.append(data['system_id'])
+        if 'entite_id' in data:
+            update_fields.append('entite_id = %s')
+            params.append(data['entite_id'])
+        if 'localisation_id' in data:
+            update_fields.append('localisation_id = %s')
+            params.append(data['localisation_id'])
+        if 'responsabilite_id' in data:
+            update_fields.append('responsabilite_id = %s')
+            params.append(data['responsabilite_id'])
+        
+        # Date de mise à jour
+        update_fields.append('datemaj = NOW()')
         
         if update_fields:
             params.append(evenement_id)
@@ -1025,7 +1482,7 @@ def api_delete_evenement(evenement_id):
     """Supprimer un événement/incident"""
     try:
         import psycopg2.extras
-        conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
         
         # Supprimer d'abord les localisations associées
@@ -1039,6 +1496,173 @@ def api_delete_evenement(evenement_id):
         conn.close()
         
         return jsonify({'success': True, 'message': 'Incident supprimé avec succès'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/evenements/<int:evenement_id>/details')
+def api_evenement_details(evenement_id):
+    """Récupérer les détails complets d'un événement/incident"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Récupérer les détails de l'événement
+        cursor.execute("""
+            SELECT e.id, e.date_avis, e.date_debut, e.date_fin, e.date_impact, e.datemaj,
+                   e.entite, e.etat, e.heure_avis, e.heure_debut, e.heure_fin, e.heure_impact,
+                   e.impact_service, e.important, e.inclure_commentaire, e.rapport_journalier,
+                   e.resume, e.source_personne, e.user_id, e.source_id, e.sous_type_id,
+                   e.system_id, e.type_id, e.extrait, e.rapport_hebdomadaire, e.fonction,
+                   e.commentaire, e.deleted, e.responsabilite_id, e.entite_id, e.workflow_etape_id,
+                   e.localisation_id
+            FROM gpr.ge_evenement e
+            WHERE e.id = %s
+        """, (evenement_id,))
+        
+        evenement = cursor.fetchone()
+        if not evenement:
+            return jsonify({'success': False, 'error': 'Événement non trouvé'})
+        
+        # Récupérer les informations de localisation
+        localisation = None
+        if evenement['localisation_id']:
+            cursor.execute("""
+                SELECT l.id, l.autre, l.commentaire, l.datemaj, l.gare_debut_id, l.gare_fin_id,
+                       l.type_localisation, l.type_pk, l.user_id, l.atelier_id, l.embranchement_id,
+                       l.evenement_id, l.etablissement_id, l.site_surete_id, l.wilaya_id,
+                       l.prefecture_id, l.commune_id, l.autorite_id, l.pk_debut, l.pk_fin, l.zone_cloture
+                FROM gpr.ge_localisation l
+                WHERE l.id = %s
+            """, (evenement['localisation_id'],))
+            
+            localisation = cursor.fetchone()
+        
+        # Récupérer les informations de type
+        type_info = None
+        if evenement['type_id']:
+            cursor.execute("""
+                SELECT id, intitule, entite_type_id, etat
+                FROM gpr.ref_types
+                WHERE id = %s
+            """, (evenement['type_id'],))
+            
+            type_info = cursor.fetchone()
+        
+        # Récupérer les informations de sous-type
+        sous_type_info = None
+        if evenement['sous_type_id']:
+            cursor.execute("""
+                SELECT id, intitule, type_id, etat
+                FROM gpr.ref_sous_types
+                WHERE id = %s
+            """, (evenement['sous_type_id'],))
+            
+            sous_type_info = cursor.fetchone()
+        
+        # Récupérer les informations de source
+        source_info = None
+        if evenement['source_id']:
+            cursor.execute("""
+                SELECT id, intitule, entite_source_id, etat
+                FROM gpr.ref_sources
+                WHERE id = %s
+            """, (evenement['source_id'],))
+            
+            source_info = cursor.fetchone()
+        
+        # Récupérer les informations d'entité
+        entite_info = None
+        if evenement['entite_id']:
+            cursor.execute("""
+                SELECT id, intitule
+                FROM gpr.ref_entites
+                WHERE id = %s
+            """, (evenement['entite_id'],))
+            
+            entite_info = cursor.fetchone()
+        
+        # Récupérer les informations de site de sûreté
+        site_surete_info = None
+        if localisation and localisation['site_surete_id']:
+            cursor.execute("""
+                SELECT id, intitule
+                FROM gpr.ref_site_surete
+                WHERE id = %s
+            """, (localisation['site_surete_id'],))
+            
+            site_surete_info = cursor.fetchone()
+        
+        cursor.close()
+        conn.close()
+        
+        evenement_data = {
+            'id': evenement['id'],
+            'date_avis': evenement['date_avis'].isoformat() if evenement['date_avis'] else None,
+            'date_debut': evenement['date_debut'].isoformat() if evenement['date_debut'] else None,
+            'date_fin': evenement['date_fin'].isoformat() if evenement['date_fin'] else None,
+            'date_impact': evenement['date_impact'].isoformat() if evenement['date_impact'] else None,
+            'datemaj': evenement['datemaj'].isoformat() if evenement['datemaj'] else None,
+            'entite': evenement['entite'],
+            'etat': evenement['etat'],
+            'heure_avis': evenement['heure_avis'].strftime('%H:%M:%S') if evenement['heure_avis'] else None,
+            'heure_debut': evenement['heure_debut'].strftime('%H:%M:%S') if evenement['heure_debut'] else None,
+            'heure_fin': evenement['heure_fin'].strftime('%H:%M:%S') if evenement['heure_fin'] else None,
+            'heure_impact': evenement['heure_impact'].strftime('%H:%M:%S') if evenement['heure_impact'] else None,
+            'impact_service': evenement['impact_service'],
+            'important': evenement['important'],
+            'inclure_commentaire': evenement['inclure_commentaire'],
+            'rapport_journalier': evenement['rapport_journalier'],
+            'resume': evenement['resume'],
+            'source_personne': evenement['source_personne'],
+            'user_id': evenement['user_id'],
+            'extrait': evenement['extrait'],
+            'rapport_hebdomadaire': evenement['rapport_hebdomadaire'],
+            'fonction': evenement['fonction'],
+            'commentaire': evenement['commentaire'],
+            'deleted': evenement['deleted'],
+            'responsabilite_id': evenement['responsabilite_id'],
+            'workflow_etape_id': evenement['workflow_etape_id'],
+            'type': {
+                'id': type_info['id'] if type_info else None,
+                'intitule': type_info['intitule'] if type_info else None,
+                'etat': type_info['etat'] if type_info else None
+            } if type_info else None,
+            'sous_type': {
+                'id': sous_type_info['id'] if sous_type_info else None,
+                'intitule': sous_type_info['intitule'] if sous_type_info else None,
+                'etat': sous_type_info['etat'] if sous_type_info else None
+            } if sous_type_info else None,
+            'source': {
+                'id': source_info['id'] if source_info else None,
+                'intitule': source_info['intitule'] if source_info else None,
+                'etat': source_info['etat'] if source_info else None
+            } if source_info else None,
+            'entite_ref': {
+                'id': entite_info['id'] if entite_info else None,
+                'intitule': entite_info['intitule'] if entite_info else None
+            } if entite_info else None,
+            'localisation': {
+                'id': localisation['id'] if localisation else None,
+                'autre': localisation['autre'] if localisation else None,
+                'commentaire': localisation['commentaire'] if localisation else None,
+                'datemaj': localisation['datemaj'].isoformat() if localisation and localisation['datemaj'] else None,
+                'gare_debut_id': localisation['gare_debut_id'] if localisation else None,
+                'gare_fin_id': localisation['gare_fin_id'] if localisation else None,
+                'type_localisation': localisation['type_localisation'] if localisation else None,
+                'type_pk': localisation['type_pk'] if localisation else None,
+                'pk_debut': localisation['pk_debut'] if localisation else None,
+                'pk_fin': localisation['pk_fin'] if localisation else None,
+                'zone_cloture': localisation['zone_cloture'] if localisation else None,
+                'site_surete': {
+                    'id': site_surete_info['id'] if site_surete_info else None,
+                    'intitule': site_surete_info['intitule'] if site_surete_info else None
+                } if site_surete_info else None
+            } if localisation else None
+        }
+        
+        return jsonify({'success': True, 'data': evenement_data})
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -1122,6 +1746,16 @@ def carte():
 @login_required
 def statistiques():
     return render_template('statistiques.html')
+
+@app.route('/axes')
+@login_required
+def axes():
+    return render_template('axes.html')
+
+@app.route('/reference')
+@login_required
+def reference():
+    return render_template('reference.html')
 
 @app.route('/gares')
 @login_required
@@ -1249,6 +1883,273 @@ def api_settings():
             })
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)})
+
+# Nouvelles routes pour afficher toutes les données
+@app.route('/api/axes', methods=['GET'])
+@login_required
+def api_axes():
+    """API pour récupérer les données des axes"""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '')
+        
+        query = GrapheArc.query
+        
+        if search:
+            query = query.filter(GrapheArc.nom_axe.ilike(f'%{search}%'))
+        
+        pagination = query.paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        axes = []
+        for axe in pagination.items:
+            axes.append({
+                'id': axe.id,
+                'axe_id': axe.axe_id,
+                'nom_axe': axe.nom_axe,
+                'pk_debut': float(axe.pk_debut) if axe.pk_debut else None,
+                'pk_fin': float(axe.pk_fin) if axe.pk_fin else None,
+                'plod': axe.plod,
+                'plof': axe.plof,
+                'absd': float(axe.absd) if axe.absd else None,
+                'absf': float(axe.absf) if axe.absf else None,
+                'geometrie': axe.geometrie
+            })
+        
+        return jsonify({
+            'success': True,
+            'data': axes,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/reference/types', methods=['GET'])
+@login_required
+def api_reference_types():
+    """API pour récupérer les types de référence"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("""
+            SELECT id, intitule, entite_type_id, date_maj, etat
+            FROM gpr.ref_types 
+            WHERE (etat = 't' OR etat IS NULL) AND (deleted = false OR deleted IS NULL)
+            ORDER BY intitule
+        """)
+        
+        types = cursor.fetchall()
+        data = []
+        
+        for t in types:
+            data.append({
+                'id': t['id'],
+                'intitule': t['intitule'],
+                'entite_type_id': t['entite_type_id'],
+                'date_maj': t['date_maj'].isoformat() if t['date_maj'] else None,
+                'etat': t['etat']
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/reference/sous-types', methods=['GET'])
+@login_required
+def api_reference_sous_types():
+    """API pour récupérer les sous-types de référence"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        type_id = request.args.get('type_id', type=int)
+        
+        if type_id:
+            cursor.execute("""
+                SELECT id, intitule, type_id, date_maj, etat
+                FROM gpr.ref_sous_types 
+                WHERE type_id = %s AND (etat = 't' OR etat IS NULL) AND (deleted = false OR deleted IS NULL)
+                ORDER BY intitule
+            """, (type_id,))
+        else:
+            cursor.execute("""
+                SELECT id, intitule, type_id, date_maj, etat
+                FROM gpr.ref_sous_types 
+                WHERE (etat = 't' OR etat IS NULL) AND (deleted = false OR deleted IS NULL)
+                ORDER BY intitule
+            """)
+        
+        sous_types = cursor.fetchall()
+        data = []
+        
+        for st in sous_types:
+            data.append({
+                'id': st['id'],
+                'intitule': st['intitule'],
+                'type_id': st['type_id'],
+                'date_maj': st['date_maj'].isoformat() if st['date_maj'] else None,
+                'etat': st['etat']
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/reference/systemes', methods=['GET'])
+@login_required
+def api_reference_systemes():
+    """API pour récupérer les systèmes de référence"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("""
+            SELECT id, intitule, entite_id, date_maj, etat
+            FROM gpr.ref_systemes 
+            WHERE (etat = 't' OR etat IS NULL) AND (deleted = false OR deleted IS NULL)
+            ORDER BY intitule
+        """)
+        
+        systemes = cursor.fetchall()
+        data = []
+        
+        for s in systemes:
+            data.append({
+                'id': s['id'],
+                'intitule': s['intitule'],
+                'entite_id': s['entite_id'],
+                'date_maj': s['date_maj'].isoformat() if s['date_maj'] else None,
+                'etat': s['etat']
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/reference/sources', methods=['GET'])
+@login_required
+def api_reference_sources():
+    """API pour récupérer les sources de référence"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("""
+            SELECT id, intitule, entite_source_id, date_maj, etat
+            FROM gpr.ref_sources 
+            WHERE (etat = 't' OR etat IS NULL) AND (deleted = false OR deleted IS NULL)
+            ORDER BY intitule
+        """)
+        
+        sources = cursor.fetchall()
+        data = []
+        
+        for s in sources:
+            data.append({
+                'id': s['id'],
+                'intitule': s['intitule'],
+                'entite_source_id': s['entite_source_id'],
+                'date_maj': s['date_maj'].isoformat() if s['date_maj'] else None,
+                'etat': s['etat']
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/reference/entites', methods=['GET'])
+@login_required
+def api_reference_entites():
+    """API pour récupérer les entités de référence"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("""
+            SELECT id, intitule
+            FROM gpr.ref_entites 
+            ORDER BY intitule
+        """)
+        
+        entites = cursor.fetchall()
+        data = []
+        
+        for e in entites:
+            data.append({
+                'id': e['id'],
+                'intitule': e['intitule']
+            })
+        
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/reference/localisations')
+def api_reference_localisations():
+    """Récupérer toutes les localisations"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        cursor.execute("""
+            SELECT id, commentaire as nom, type_localisation, pk_debut, pk_fin
+            FROM gpr.ge_localisation 
+            ORDER BY commentaire
+        """)
+        
+        localisations = [dict(row) for row in cursor.fetchall()]
+        cursor.close()
+        conn.close()
+        
+        return jsonify(localisations)
+    except Exception as e:
+        return jsonify([])
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

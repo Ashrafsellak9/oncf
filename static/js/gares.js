@@ -9,12 +9,16 @@ let filteredGares = [];
 let currentPage = 1;
 let itemsPerPage = 25;
 let gareFilters = {
-    axes: [],
+    sections: [],
     types: [],
-    etats: []
+    etats: [],
+    regions: [],
+    villes: []
 };
 let selectedGare = null;
 let isEditing = false;
+let activeFilters = {};
+let filterTimeout = null;
 
 // Configuration API
 const API_BASE = '/api';
@@ -44,12 +48,17 @@ document.addEventListener('DOMContentLoaded', function() {
  * Configuration des écouteurs d'événements
  */
 function setupEventListeners() {
-    // Filtres en temps réel
-    document.getElementById('searchGares').addEventListener('input', debounce(applyFilters, 500));
-    document.getElementById('filterAxe').addEventListener('change', applyFilters);
+    // Filtres en temps réel avec debounce
+    document.getElementById('searchGares').addEventListener('input', debounce(applyFilters, 300));
+    document.getElementById('filterSection').addEventListener('change', applyFilters);
     document.getElementById('filterType').addEventListener('change', applyFilters);
     document.getElementById('filterEtat').addEventListener('change', applyFilters);
+    document.getElementById('filterRegion').addEventListener('change', applyFilters);
+    document.getElementById('filterVille').addEventListener('change', applyFilters);
     document.getElementById('pageSize').addEventListener('change', changePageSize);
+    
+    // Boutons de filtrage rapide
+    setupQuickFilters();
     
     // Actualisation automatique toutes les 10 minutes
     setInterval(refreshGares, 10 * 60 * 1000);
@@ -80,6 +89,9 @@ async function loadGares(page = 1, filters = {}) {
                 updatePagination(data.pagination);
             }
             
+            // Mettre à jour le nombre de gares filtrées
+            updateGareStatistics();
+            
             console.log(`✅ ${allGares.length} gares chargées`);
             return data;
         } else {
@@ -104,6 +116,10 @@ async function loadGareFilters() {
         
         if (data.success) {
             gareFilters = data.data;
+            
+            // Extraire les options uniques depuis toutes les gares
+            extractUniqueFilterOptions();
+            
             populateFilterOptions();
             console.log('✅ Options de filtrage chargées');
         }
@@ -113,107 +129,333 @@ async function loadGareFilters() {
 }
 
 /**
+ * Extraire les options uniques pour les filtres
+ */
+function extractUniqueFilterOptions() {
+    if (allGares.length === 0) return;
+    
+    const sections = new Set();
+    const types = new Set();
+    const etats = new Set();
+    const regions = new Set();
+    const villes = new Set();
+    
+    allGares.forEach(gare => {
+        if (gare.section) sections.add(gare.section);
+        if (gare.type) types.add(gare.type);
+        if (gare.etat) etats.add(gare.etat);
+        if (gare.region) regions.add(gare.region);
+        if (gare.ville) villes.add(gare.ville);
+    });
+    
+    // Mettre à jour les filtres avec les nouvelles options
+    gareFilters.sections = Array.from(sections).sort();
+    gareFilters.types = Array.from(types).sort();
+    gareFilters.etats = Array.from(etats).sort();
+    gareFilters.regions = Array.from(regions).sort();
+    gareFilters.villes = Array.from(villes).sort();
+}
+
+/**
  * Charger les statistiques
  */
 async function loadStatistics() {
     try {
-        const response = await fetch(`${API_BASE}/statistiques`);
+        // Récupérer les statistiques depuis l'API
+        const response = await fetch(`${API_BASE}/gares/stats`);
         const data = await response.json();
         
-        if (data.success && data.data.gares) {
-            const stats = data.data.gares;
+        if (data.success) {
+            const stats = data.data;
             
-            document.getElementById('totalGaresCount').textContent = stats.total || 0;
+            // Mettre à jour l'affichage avec les vraies statistiques
+            document.getElementById('totalGaresCount').textContent = stats.total_gares || 0;
+            document.getElementById('activeGaresCount').textContent = stats.active_gares || 0;
+            document.getElementById('passiveGaresCount').textContent = stats.passive_gares || 0;
             
-            // Calculer les gares par état
-            let activeCount = 0, passiveCount = 0;
-            stats.par_type.forEach(item => {
-                if (item.type && item.type.toLowerCase().includes('active')) {
-                    activeCount += item.count;
-                } else {
-                    passiveCount += item.count;
-                }
-            });
-            
-            document.getElementById('activeGaresCount').textContent = activeCount;
-            document.getElementById('passiveGaresCount').textContent = passiveCount;
-            document.getElementById('filteredGaresCount').textContent = filteredGares.length;
-            
-            console.log('✅ Statistiques des gares chargées');
+            console.log(`📊 Statistiques globales: Total=${stats.total_gares}, Actives=${stats.active_gares}, Passives=${stats.passive_gares}`);
+        } else {
+            console.error('❌ Erreur API statistiques:', data.error);
+            // Fallback: calculer à partir des données locales
+            updateGareStatistics();
         }
     } catch (error) {
         console.error('❌ Erreur chargement statistiques:', error);
+        // Fallback: calculer à partir des données locales
+        updateGareStatistics();
     }
+}
+
+/**
+ * Mettre à jour les statistiques des gares filtrées
+ */
+function updateGareStatistics() {
+    // Cette fonction met à jour seulement le nombre de gares filtrées
+    // Les statistiques globales sont gérées par loadStatistics()
+    
+    const filteredCount = filteredGares ? filteredGares.length : 0;
+    document.getElementById('filteredGaresCount').textContent = filteredCount;
+    
+    console.log(`📊 Gares filtrées: ${filteredCount}`);
 }
 
 /**
  * Peupler les options de filtrage
  */
 function populateFilterOptions() {
-    // Axes
-    const axeSelect = document.getElementById('filterAxe');
-    axeSelect.innerHTML = '<option value="">Tous les axes</option>';
-    gareFilters.axes.forEach(axe => {
-        const option = document.createElement('option');
-        option.value = axe;
-        option.textContent = axe;
-        axeSelect.appendChild(option);
-    });
+    // Sections
+    const sectionSelect = document.getElementById('filterSection');
+    if (sectionSelect) {
+        sectionSelect.innerHTML = '<option value="">Toutes les sections</option>';
+        gareFilters.sections.forEach(section => {
+            const option = document.createElement('option');
+            option.value = section;
+            option.textContent = section;
+            sectionSelect.appendChild(option);
+        });
+    }
     
     // Types
     const typeSelect = document.getElementById('filterType');
-    typeSelect.innerHTML = '<option value="">Tous les types</option>';
-    gareFilters.types.forEach(type => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        typeSelect.appendChild(option);
-    });
+    if (typeSelect) {
+        typeSelect.innerHTML = '<option value="">Tous les types</option>';
+        gareFilters.types.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type;
+            option.textContent = type;
+            typeSelect.appendChild(option);
+        });
+    }
     
     // États
     const etatSelect = document.getElementById('filterEtat');
-    etatSelect.innerHTML = '<option value="">Tous les états</option>';
-    gareFilters.etats.forEach(etat => {
-        const option = document.createElement('option');
-        option.value = etat;
-        option.textContent = etat;
-        etatSelect.appendChild(option);
-    });
+    if (etatSelect) {
+        etatSelect.innerHTML = '<option value="">Tous les états</option>';
+        gareFilters.etats.forEach(etat => {
+            const option = document.createElement('option');
+            option.value = etat;
+            option.textContent = etat;
+            etatSelect.appendChild(option);
+        });
+    }
+    
+    // Régions
+    const regionSelect = document.getElementById('filterRegion');
+    if (regionSelect) {
+        regionSelect.innerHTML = '<option value="">Toutes les régions</option>';
+        gareFilters.regions.forEach(region => {
+            const option = document.createElement('option');
+            option.value = region;
+            option.textContent = region;
+            regionSelect.appendChild(option);
+        });
+    }
+    
+    // Villes
+    const villeSelect = document.getElementById('filterVille');
+    if (villeSelect) {
+        villeSelect.innerHTML = '<option value="">Toutes les villes</option>';
+        gareFilters.villes.forEach(ville => {
+            const option = document.createElement('option');
+            option.value = ville;
+            option.textContent = ville;
+            villeSelect.appendChild(option);
+        });
+    }
 }
 
 /**
  * Appliquer les filtres
  */
 async function applyFilters() {
-    const search = document.getElementById('searchGares').value;
-    const axe = document.getElementById('filterAxe').value;
-    const type = document.getElementById('filterType').value;
-    const etat = document.getElementById('filterEtat').value;
+    // Annuler le timeout précédent
+    if (filterTimeout) {
+        clearTimeout(filterTimeout);
+    }
     
-    const filters = {};
-    if (search) filters.search = search;
-    if (axe) filters.axe = axe;
-    if (type) filters.type = type;
-    if (etat) filters.etat = etat;
+    // Appliquer les filtres avec un délai pour éviter trop de requêtes
+    filterTimeout = setTimeout(async () => {
+        const search = document.getElementById('searchGares')?.value || '';
+        const section = document.getElementById('filterSection')?.value || '';
+        const type = document.getElementById('filterType')?.value || '';
+        const etat = document.getElementById('filterEtat')?.value || '';
+        const region = document.getElementById('filterRegion')?.value || '';
+        const ville = document.getElementById('filterVille')?.value || '';
+        
+        // Construire l'objet des filtres actifs
+        activeFilters = {};
+        if (search) activeFilters.search = search;
+        if (section) activeFilters.section = section;
+        if (type) activeFilters.type = type;
+        if (etat) activeFilters.etat = etat;
+        if (region) activeFilters.region = region;
+        if (ville) activeFilters.ville = ville;
+        
+        // Afficher les filtres actifs
+        updateActiveFiltersDisplay();
+        
+        currentPage = 1;
+        await loadGares(currentPage, activeFilters);
+        renderGares();
+        
+        // Mettre à jour les statistiques après avoir appliqué les filtres
+        updateGareStatistics();
+        
+        console.log(`🔍 Filtres appliqués: ${filteredGares.length} gares trouvées`);
+        console.log('📋 Filtres actifs:', activeFilters);
+    }, 300);
+}
+
+/**
+ * Mettre à jour l'affichage des filtres actifs
+ */
+function updateActiveFiltersDisplay() {
+    const activeFiltersContainer = document.getElementById('activeFiltersContainer');
+    if (!activeFiltersContainer) return;
     
-    currentPage = 1;
-    await loadGares(currentPage, filters);
-    renderGares();
+    const activeFiltersList = Object.entries(activeFilters)
+        .filter(([key, value]) => value && value.trim() !== '')
+        .map(([key, value]) => ({
+            key: key,
+            value: value,
+            label: getFilterLabel(key, value)
+        }));
     
-    console.log(`🔍 Filtres appliqués: ${filteredGares.length} gares trouvées`);
+    if (activeFiltersList.length === 0) {
+        activeFiltersContainer.innerHTML = '';
+        return;
+    }
+    
+    let html = '<div class="d-flex flex-wrap gap-2 align-items-center">';
+    html += '<span class="text-muted small">Filtres actifs:</span>';
+    
+    activeFiltersList.forEach(filter => {
+        html += `
+            <span class="badge bg-primary d-flex align-items-center gap-1">
+                ${filter.label}
+                <button type="button" class="btn-close btn-close-white" 
+                        onclick="removeFilter('${filter.key}')" 
+                        style="font-size: 0.5rem;"></button>
+            </span>
+        `;
+    });
+    
+    html += `
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllFilters()">
+            <i class="fas fa-times"></i> Effacer tout
+        </button>
+    `;
+    
+    html += '</div>';
+    activeFiltersContainer.innerHTML = html;
+}
+
+/**
+ * Obtenir le label d'un filtre
+ */
+function getFilterLabel(key, value) {
+    const labels = {
+        search: `Recherche: "${value}"`,
+        section: `Section: ${value}`,
+        type: `Type: ${value}`,
+        etat: `État: ${value}`,
+        region: `Région: ${value}`,
+        ville: `Ville: ${value}`
+    };
+    return labels[key] || `${key}: ${value}`;
+}
+
+/**
+ * Supprimer un filtre spécifique
+ */
+function removeFilter(filterKey) {
+    const element = document.getElementById(`filter${filterKey.charAt(0).toUpperCase() + filterKey.slice(1)}`);
+    if (element) {
+        element.value = '';
+    }
+    applyFilters();
+}
+
+/**
+ * Effacer tous les filtres
+ */
+function clearAllFilters() {
+    const filterElements = [
+        'searchGares',
+        'filterSection',
+        'filterType',
+        'filterEtat',
+        'filterRegion',
+        'filterVille'
+    ];
+    
+    filterElements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.value = '';
+        }
+    });
+    
+    applyFilters();
 }
 
 /**
  * Réinitialiser les filtres
  */
 function resetFilters() {
-    document.getElementById('searchGares').value = '';
-    document.getElementById('filterAxe').value = '';
-    document.getElementById('filterType').value = '';
-    document.getElementById('filterEtat').value = '';
+    clearAllFilters();
+    showNotification('Filtres réinitialisés', 'info');
+}
+
+/**
+ * Configurer les filtres rapides
+ */
+function setupQuickFilters() {
+    const quickFiltersContainer = document.getElementById('quickFiltersContainer');
+    if (!quickFiltersContainer) return;
+    
+    const quickFilters = [
+        { label: 'Gares Actives', filter: { etat: 'ACTIVE' }, icon: 'fas fa-check-circle', color: 'success' },
+        { label: 'Gares Passives', filter: { etat: 'PASSIVE' }, icon: 'fas fa-pause-circle', color: 'warning' },
+        { label: 'Stations', filter: { type: 'STATION' }, icon: 'fas fa-building', color: 'primary' },
+        { label: 'Haltes', filter: { type: 'Haltes' }, icon: 'fas fa-map-marker-alt', color: 'info' },
+        { label: 'Casablanca', filter: { region: 'CASABLANCA' }, icon: 'fas fa-city', color: 'secondary' },
+        { label: 'Rabat', filter: { region: 'RABAT' }, icon: 'fas fa-city', color: 'secondary' }
+    ];
+    
+    let html = '<div class="d-flex flex-wrap gap-2">';
+    html += '<span class="text-muted small me-2">Filtres rapides:</span>';
+    
+    quickFilters.forEach(quickFilter => {
+        html += `
+            <button type="button" class="btn btn-sm btn-outline-${quickFilter.color}" 
+                    onclick="applyQuickFilter(${JSON.stringify(quickFilter.filter).replace(/"/g, '&quot;')})">
+                <i class="${quickFilter.icon}"></i> ${quickFilter.label}
+            </button>
+        `;
+    });
+    
+    html += '</div>';
+    quickFiltersContainer.innerHTML = html;
+}
+
+/**
+ * Appliquer un filtre rapide
+ */
+function applyQuickFilter(filter) {
+    // Réinitialiser tous les filtres
+    clearAllFilters();
+    
+    // Appliquer le filtre rapide
+    Object.entries(filter).forEach(([key, value]) => {
+        const element = document.getElementById(`filter${key.charAt(0).toUpperCase() + key.slice(1)}`);
+        if (element) {
+            element.value = value;
+        }
+    });
     
     applyFilters();
-    showNotification('Filtres réinitialisés', 'info');
+    showNotification('Filtre rapide appliqué', 'info');
 }
 
 /**
@@ -233,14 +475,15 @@ function renderGares() {
                 </td>
             </tr>
         `;
-        return;
+    } else {
+        filteredGares.forEach(gare => {
+            const row = createGareRow(gare);
+            tbody.appendChild(row);
+        });
     }
     
-    filteredGares.forEach(gare => {
-        const row = createGareRow(gare);
-        tbody.appendChild(row);
-    });
-    
+    // Mettre à jour les statistiques après avoir affiché les gares
+    updateGareStatistics();
     updatePaginationInfo();
 }
 
@@ -263,7 +506,7 @@ function createGareRow(gare) {
         </td>
         <td>${gare.code || 'N/A'}</td>
         <td>${gare.type || 'Non défini'}</td>
-        <td>${gare.axe || 'Non défini'}</td>
+        <td>${gare.region || 'Non définie'}</td>
         <td>${gare.ville || 'Non définie'}</td>
         <td>
             <span class="gare-status ${statusClass}"></span>
@@ -291,79 +534,240 @@ function createGareRow(gare) {
  * Afficher les détails d'une gare
  */
 function showGareDetails(gareId) {
-    const gare = allGares.find(g => g.id === gareId);
-    if (!gare) return;
+    console.log('🔍 Affichage des détails de la gare:', gareId);
     
-    selectedGare = gare;
-    
+    // Afficher un indicateur de chargement
     const content = document.getElementById('gareModalContent');
     content.innerHTML = `
-        <div class="row">
-            <div class="col-md-6">
-                <h6>Informations générales</h6>
-                <table class="table table-sm">
-                    <tr>
-                        <td><strong>ID:</strong></td>
-                        <td>#${gare.id}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Nom:</strong></td>
-                        <td>${gare.nom || 'Non défini'}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Code:</strong></td>
-                        <td>${gare.code || 'Non défini'}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Type:</strong></td>
-                        <td>${gare.type || 'Non défini'}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>État:</strong></td>
-                        <td>
-                            <span class="badge bg-${gare.etat === 'ACTIVE' ? 'success' : 'secondary'}">
-                                ${gare.etat === 'ACTIVE' ? 'Active' : 'Passive'}
-                            </span>
-                        </td>
-                    </tr>
-                </table>
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Chargement...</span>
             </div>
-            <div class="col-md-6">
-                <h6>Localisation</h6>
-                <table class="table table-sm">
-                    <tr>
-                        <td><strong>Axe:</strong></td>
-                        <td>${gare.axe || 'Non défini'}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Ville:</strong></td>
-                        <td>${gare.ville || 'Non définie'}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Code Opérationnel:</strong></td>
-                        <td>${gare.codeoperationnel || 'Non défini'}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Code Réseau:</strong></td>
-                        <td>${gare.codereseau || 'Non défini'}</td>
-                    </tr>
-                </table>
-            </div>
+            <p class="mt-2">Chargement des détails...</p>
         </div>
-        
-        ${gare.geometrie ? `
-        <div class="mt-4">
-            <h6>Coordonnées géographiques</h6>
-            <div class="border rounded p-3 bg-light">
-                <code>${gare.geometrie}</code>
-            </div>
-        </div>
-        ` : ''}
     `;
     
     // Afficher la modal
     const modal = new bootstrap.Modal(document.getElementById('gareDetailsModal'));
     modal.show();
+    
+    // Récupérer les détails complets depuis l'API
+    fetch(`/api/gares/${gareId}/details`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const gare = data.data;
+                selectedGare = gare;
+                
+                content.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-info-circle me-2"></i>Informations générales</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>ID:</strong></td>
+                                    <td><span class="badge bg-secondary">#${gare.id}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Nom:</strong></td>
+                                    <td>${gare.nom || 'Non défini'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Code Gare:</strong></td>
+                                    <td><span class="badge bg-primary">${gare.code_gare || 'Non défini'}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Type:</strong></td>
+                                    <td>${gare.type || 'Non défini'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Type Commercial:</strong></td>
+                                    <td>${gare.type_commercial || 'Non défini'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>État:</strong></td>
+                                    <td>
+                                        <span class="badge bg-${gare.etat === 'ACTIVE' ? 'success' : 'secondary'}">
+                                            ${gare.etat === 'ACTIVE' ? 'Active' : 'Passive'}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Statut:</strong></td>
+                                    <td>${gare.statut || 'Non défini'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-map-marker-alt me-2"></i>Localisation</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Région:</strong></td>
+                                    <td>${gare.region || 'Non définie'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ville:</strong></td>
+                                    <td>${gare.ville || 'Non définie'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Section:</strong></td>
+                                    <td>${gare.section || 'Non définie'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>PK Début:</strong></td>
+                                    <td>${gare.pk_debut || 'Non défini'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Distance:</strong></td>
+                                    <td>${gare.distance ? `${gare.distance} km` : 'Non définie'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-cogs me-2"></i>Paramètres techniques</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>PLOD:</strong></td>
+                                    <td>${gare.plod || 'Non défini'}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>PLOF:</strong></td>
+                                    <td>${gare.plof || 'Non défini'}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-chart-bar me-2"></i>Statistiques</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Total Incidents:</strong></td>
+                                    <td><span class="badge bg-info">${gare.statistiques.total_incidents}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Incidents Ouverts:</strong></td>
+                                    <td><span class="badge bg-warning">${gare.statistiques.incidents_ouverts}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Incidents Fermés:</strong></td>
+                                    <td><span class="badge bg-success">${gare.statistiques.incidents_fermes}</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    ${gare.commentaire ? `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-comment me-2"></i>Commentaire</h6>
+                        <div class="border rounded p-3 bg-light">
+                            ${gare.commentaire}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${gare.geometrie ? `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-map me-2"></i>Coordonnées géographiques</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-info">Format WKT</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('${gare.geometrie}')">
+                                    <i class="fas fa-copy"></i> Copier
+                                </button>
+                            </div>
+                            <code class="d-block">${gare.geometrie}</code>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${gare.geometrie_dec ? `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-code me-2"></i>Géométrie décodée</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-warning">Format WKB</span>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard('${gare.geometrie_dec}')">
+                                    <i class="fas fa-copy"></i> Copier
+                                </button>
+                            </div>
+                            <code class="d-block">${gare.geometrie_dec}</code>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${gare.geometrie ? `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-map-marked-alt me-2"></i>Visualisation de la position</h6>
+                        <div class="border rounded p-3 bg-light">
+                            <div id="gareMap-${gare.id}" style="height: 300px; width: 100%;"></div>
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${gare.incidents && gare.incidents.length > 0 ? `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Incidents récents (${gare.incidents.length})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Date</th>
+                                        <th>Heure</th>
+                                        <th>État</th>
+                                        <th>Entité</th>
+                                        <th>Résumé</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${gare.incidents.map(incident => `
+                                        <tr>
+                                            <td><span class="badge bg-secondary">#${incident.id}</span></td>
+                                            <td>${incident.date_debut ? new Date(incident.date_debut).toLocaleDateString('fr-FR') : 'N/A'}</td>
+                                            <td>${incident.heure_debut || 'N/A'}</td>
+                                            <td>
+                                                <span class="badge bg-${incident.etat === 'Ouvert' ? 'warning' : 'success'}">
+                                                    ${incident.etat || 'N/A'}
+                                                </span>
+                                            </td>
+                                            <td>${incident.entite || 'N/A'}</td>
+                                            <td>${incident.resume ? (incident.resume.length > 50 ? incident.resume.substring(0, 50) + '...' : incident.resume) : 'N/A'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                // Initialiser la carte si la géométrie est disponible
+                if (gare.geometrie) {
+                    setTimeout(() => {
+                        initGareMap(gare.id, gare.geometrie);
+                    }, 300);
+                }
+                
+            } else {
+                content.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Erreur lors du chargement des détails: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('❌ Erreur lors du chargement des détails:', error);
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Erreur de connexion lors du chargement des détails
+                </div>
+            `;
+        });
 }
 
 /**
@@ -757,6 +1161,95 @@ function debounce(func, wait) {
     };
 }
 
+/**
+ * Copier du texte dans le presse-papiers
+ */
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showNotification('Texte copié dans le presse-papiers', 'success');
+    }).catch(err => {
+        console.error('Erreur lors de la copie:', err);
+        showNotification('Erreur lors de la copie', 'error');
+    });
+}
+
+/**
+ * Initialiser la carte pour une gare spécifique
+ */
+function initGareMap(gareId, geometrie) {
+    try {
+        // Extraire les coordonnées du format WKT POINT(x y)
+        const match = geometrie.match(/POINT\(([-\d.]+)\s+([-\d.]+)\)/);
+        if (!match) {
+            console.error('Format de géométrie non reconnu:', geometrie);
+            return;
+        }
+        
+        const lon = parseFloat(match[1]);
+        const lat = parseFloat(match[2]);
+        
+        // Créer la carte Leaflet
+        const mapElement = document.getElementById(`gareMap-${gareId}`);
+        if (!mapElement) {
+            console.error('Élément de carte non trouvé');
+            return;
+        }
+        
+        const map = L.map(`gareMap-${gareId}`).setView([lat, lon], 13);
+        
+        // Ajouter la couche OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Ajouter le marqueur de la gare
+        const marker = L.marker([lat, lon]).addTo(map);
+        
+        // Ajouter un popup avec les informations de la gare
+        const gare = allGares.find(g => g.id === gareId);
+        if (gare) {
+            marker.bindPopup(`
+                <div class="text-center">
+                    <h6><i class="fas fa-train"></i> ${gare.nom}</h6>
+                    <p class="mb-1"><strong>Code:</strong> ${gare.code}</p>
+                    <p class="mb-1"><strong>Type:</strong> ${gare.type}</p>
+                    <p class="mb-0"><strong>Coordonnées:</strong><br>${lat.toFixed(6)}, ${lon.toFixed(6)}</p>
+                </div>
+            `);
+        }
+        
+        // Ajouter un cercle pour indiquer la précision
+        L.circle([lat, lon], {
+            color: 'red',
+            fillColor: '#f03',
+            fillOpacity: 0.2,
+            radius: 500
+        }).addTo(map);
+        
+    } catch (error) {
+        console.error('Erreur lors de l\'initialisation de la carte:', error);
+    }
+}
+
+/**
+ * Parser les coordonnées WKT
+ */
+function parseWKT(wkt) {
+    try {
+        if (wkt.startsWith('POINT(')) {
+            const coords = wkt.replace('POINT(', '').replace(')', '').split(' ');
+            return {
+                type: 'Point',
+                coordinates: [parseFloat(coords[0]), parseFloat(coords[1])]
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error('Erreur lors du parsing WKT:', error);
+        return null;
+    }
+}
+
 // Fonctions globales pour les événements onclick
 window.showGareDetails = showGareDetails;
 window.editGare = editGare;
@@ -771,4 +1264,9 @@ window.resetFilters = resetFilters;
 window.goToPage = goToPage;
 window.changePageSize = changePageSize;
 window.toggleSelectAll = toggleSelectAll;
-window.sortTable = sortTable; 
+window.sortTable = sortTable;
+window.copyToClipboard = copyToClipboard;
+window.initGareMap = initGareMap;
+window.removeFilter = removeFilter;
+window.clearAllFilters = clearAllFilters;
+window.applyQuickFilter = applyQuickFilter; 
