@@ -96,6 +96,9 @@ function initONCFMap() {
     
     // Ajouter les événements de la carte
     setupMapEvents();
+    
+    // Initialiser le système de filtrage avancé
+    setupAdvancedFiltering();
 }
 
 // Charger les données de la carte
@@ -2782,7 +2785,7 @@ function positionIncidentFromGeLocalisation(incident) {
     return coords;
 }
 
-// Mettre à jour les statistiques avancées - BASÉ SUR ge_localisation
+// Mettre à jour les statistiques avancées - TEMPS RÉEL AVEC ANIMATIONS
 function updateAdvancedStatistics() {
     const visibleIncidents = incidentsLayer.getLayers();
     
@@ -2803,6 +2806,15 @@ function updateAdvancedStatistics() {
         'En ligne': 0
     };
     
+    // Statistiques par période (24h, 7j, 30j)
+    const periodStats = {
+        '24h': 0,
+        '7j': 0,
+        '30j': 0
+    };
+    
+    const now = new Date();
+    
     visibleIncidents.forEach(marker => {
         const incident = marker.incidentData;
         if (incident) {
@@ -2822,32 +2834,39 @@ function updateAdvancedStatistics() {
             } else {
                 locationStats['En ligne']++;
             }
+            
+            // Compter par période
+            if (incident.date_creation) {
+                const incidentDate = new Date(incident.date_creation);
+                const diffHours = (now - incidentDate) / (1000 * 60 * 60);
+                
+                if (diffHours <= 24) periodStats['24h']++;
+                if (diffHours <= 168) periodStats['7j']++; // 7 * 24
+                if (diffHours <= 720) periodStats['30j']++; // 30 * 24
+            }
         }
     });
     
-    // Mettre à jour l'affichage des statistiques par statut
-    const incidentsOuverts = document.getElementById('incidentsOuverts');
-    const incidentsEnCours = document.getElementById('incidentsEnCours');
-    const incidentsResolus = document.getElementById('incidentsResolus');
-    const incidentsFermes = document.getElementById('incidentsFermes');
+    // Mettre à jour avec animations
+    updateStatisticWithAnimation('incidentsOuverts', statusStats['Ouvert'] || 0);
+    updateStatisticWithAnimation('incidentsEnCours', statusStats['En cours'] || 0);
+    updateStatisticWithAnimation('incidentsResolus', statusStats['Résolu'] || 0);
+    updateStatisticWithAnimation('incidentsFermes', statusStats['Fermé'] || 0);
     
-    if (incidentsOuverts) incidentsOuverts.textContent = statusStats['Ouvert'] || '0';
-    if (incidentsEnCours) incidentsEnCours.textContent = statusStats['En cours'] || '0';
-    if (incidentsResolus) incidentsResolus.textContent = statusStats['Résolu'] || '0';
-    if (incidentsFermes) incidentsFermes.textContent = statusStats['Fermé'] || '0';
+    updateStatisticWithAnimation('incidentsEnGare', locationStats['Gare'] || 0);
+    updateStatisticWithAnimation('incidentsEnLigne', locationStats['En ligne'] || 0);
     
-    // Mettre à jour l'affichage des statistiques par localisation
-    const incidentsEnGare = document.getElementById('incidentsEnGare');
-    const incidentsEnLigne = document.getElementById('incidentsEnLigne');
-    
-    if (incidentsEnGare) incidentsEnGare.textContent = locationStats['Gare'] || '0';
-    if (incidentsEnLigne) incidentsEnLigne.textContent = locationStats['En ligne'] || '0';
+    // Mettre à jour les statistiques de période
+    updatePeriodStats(periodStats);
     
     // Mettre à jour l'affichage des types d'incidents
     updateIncidentTypesDisplay(typeStats);
     
     // Mettre à jour la légende des types d'incidents
     updateIncidentTypesLegend(typeStats);
+    
+    // Mettre à jour le graphique en temps réel
+    updateRealTimeChart(statusStats, locationStats);
 }
 
 // Mettre à jour l'affichage des types d'incidents
@@ -2873,29 +2892,82 @@ function updateIncidentTypesDisplay(typeStats) {
     });
 }
 
-// Mettre à jour la légende des types d'incidents
+// Mettre à jour la légende des types d'incidents - AMÉLIORÉE
 function updateIncidentTypesLegend(typeStats) {
     const container = document.getElementById('incidentTypesLegend');
     if (!container) return;
     
     container.innerHTML = '';
     
-    // Créer une légende pour les types d'incidents
+    // Titre de la légende avec icône
     const legendTitle = document.createElement('h6');
-    legendTitle.className = 'mb-2';
-    legendTitle.textContent = 'Types d\'incidents';
+    legendTitle.className = 'mb-3 d-flex align-items-center';
+    legendTitle.innerHTML = `
+        <i class="fas fa-map-marker-alt text-primary me-2"></i>
+        <span>Types d'incidents</span>
+        <span class="badge bg-primary ms-2">${Object.values(typeStats).reduce((a, b) => a + b, 0)}</span>
+    `;
     container.appendChild(legendTitle);
     
-    // Afficher les types avec leurs couleurs
-    Object.entries(typeStats).slice(0, 8).forEach(([typeName, count]) => {
+    // Trier les types par nombre d'incidents (décroissant)
+    const sortedTypes = Object.entries(typeStats)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 10); // Afficher les 10 premiers
+    
+    sortedTypes.forEach(([typeName, count]) => {
         const legendItem = document.createElement('div');
-        legendItem.className = 'd-flex align-items-center mb-1';
-        legendItem.innerHTML = `
-            <div style="width: 12px; height: 12px; background-color: #007bff; border-radius: 50%; margin-right: 8px;"></div>
-            <span class="small">${typeName} (${count})</span>
+        legendItem.className = 'd-flex align-items-center justify-content-between mb-2 p-2 rounded';
+        legendItem.style.cssText = 'background: rgba(0,123,255,0.1); border-left: 4px solid #007bff;';
+        
+        // Icône et nom du type
+        const typeInfo = document.createElement('div');
+        typeInfo.className = 'd-flex align-items-center';
+        typeInfo.innerHTML = `
+            <div style="width: 16px; height: 16px; background: linear-gradient(45deg, #007bff, #0056b3); border-radius: 50%; margin-right: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+            <span class="small fw-bold">${typeName}</span>
         `;
+        
+        // Compteur avec badge stylisé
+        const countBadge = document.createElement('span');
+        countBadge.className = 'badge';
+        countBadge.style.cssText = 'background: linear-gradient(45deg, #007bff, #0056b3); border: none; font-size: 0.75rem;';
+        countBadge.textContent = count;
+        
+        legendItem.appendChild(typeInfo);
+        legendItem.appendChild(countBadge);
         container.appendChild(legendItem);
+        
+        // Effet hover
+        legendItem.addEventListener('mouseenter', () => {
+            legendItem.style.cssText = 'background: rgba(0,123,255,0.2); border-left: 4px solid #0056b3; cursor: pointer; transition: all 0.3s ease;';
+        });
+        
+        legendItem.addEventListener('mouseleave', () => {
+            legendItem.style.cssText = 'background: rgba(0,123,255,0.1); border-left: 4px solid #007bff; transition: all 0.3s ease;';
+        });
+        
+        // Clic pour filtrer
+        legendItem.addEventListener('click', () => {
+            filterIncidentsByType(typeName);
+        });
     });
+    
+    // Légende des statuts
+    const statusLegend = document.createElement('div');
+    statusLegend.className = 'mt-3';
+    statusLegend.innerHTML = `
+        <h6 class="mb-2 d-flex align-items-center">
+            <i class="fas fa-info-circle text-info me-2"></i>
+            <span>Statuts</span>
+        </h6>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge" style="background: #dc3545; border: none;">● Ouvert</span>
+            <span class="badge" style="background: #ffc107; border: none; color: #000;">● En cours</span>
+            <span class="badge" style="background: #28a745; border: none;">● Résolu</span>
+            <span class="badge" style="background: #6c757d; border: none;">● Fermé</span>
+        </div>
+    `;
+    container.appendChild(statusLegend);
 }
 
 // Fonction pour trouver la gare la plus proche d'un PK
@@ -2958,6 +3030,292 @@ function findNearestGareByPK(pkValue, garePositions) {
     });
     
     return nearestGare;
+}
+
+// Fonction pour mettre à jour une statistique avec animation
+function updateStatisticWithAnimation(elementId, newValue) {
+    const element = document.getElementById(elementId);
+    if (!element) return;
+    
+    const currentValue = parseInt(element.textContent) || 0;
+    const targetValue = newValue;
+    
+    if (currentValue === targetValue) return;
+    
+    // Animation de comptage
+    let startValue = currentValue;
+    const duration = 500; // 500ms
+    const startTime = Date.now();
+    
+    function animate() {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Fonction d'easing
+        const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+        const currentValue = Math.round(startValue + (targetValue - startValue) * easeOutQuart);
+        
+        element.textContent = currentValue;
+        
+        // Ajouter une classe temporaire pour l'effet visuel
+        if (progress < 1) {
+            element.classList.add('text-primary', 'fw-bold');
+            requestAnimationFrame(animate);
+        } else {
+            // Retirer la classe après l'animation
+            setTimeout(() => {
+                element.classList.remove('text-primary', 'fw-bold');
+            }, 200);
+        }
+    }
+    
+    animate();
+}
+
+// Mettre à jour les statistiques de période
+function updatePeriodStats(periodStats) {
+    const period24h = document.getElementById('period24h');
+    const period7j = document.getElementById('period7j');
+    const period30j = document.getElementById('period30j');
+    
+    if (period24h) updateStatisticWithAnimation('period24h', periodStats['24h']);
+    if (period7j) updateStatisticWithAnimation('period7j', periodStats['7j']);
+    if (period30j) updateStatisticWithAnimation('period30j', periodStats['30j']);
+}
+
+// Mettre à jour le graphique en temps réel
+function updateRealTimeChart(statusStats, locationStats) {
+    const chartContainer = document.getElementById('realTimeChart');
+    if (!chartContainer) return;
+    
+    // Créer un graphique simple avec CSS
+    const chartHTML = `
+        <div class="row g-2">
+            <div class="col-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-2 text-center">
+                        <h6 class="text-danger mb-1">${statusStats['Ouvert'] || 0}</h6>
+                        <small class="text-muted">Ouverts</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-2 text-center">
+                        <h6 class="text-warning mb-1">${statusStats['En cours'] || 0}</h6>
+                        <small class="text-muted">En cours</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-2 text-center">
+                        <h6 class="text-success mb-1">${statusStats['Résolu'] || 0}</h6>
+                        <small class="text-muted">Résolus</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-2 text-center">
+                        <h6 class="text-secondary mb-1">${statusStats['Fermé'] || 0}</h6>
+                        <small class="text-muted">Fermés</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    chartContainer.innerHTML = chartHTML;
+}
+
+// Fonction pour filtrer les incidents par type - AMÉLIORÉE
+function filterIncidentsByType(typeName) {
+    console.log(`🔍 Filtrage des incidents par type: ${typeName}`);
+    
+    // Filtrer les incidents visibles
+    const visibleIncidents = incidentsLayer.getLayers();
+    const filteredIncidents = visibleIncidents.filter(marker => {
+        const incident = marker.incidentData;
+        return incident && incident.type_name === typeName;
+    });
+    
+    // Mettre à jour l'affichage
+    updateIncidentFilters();
+    updateMapStats();
+    
+    // Notification
+    showNotification(`Filtrage: ${filteredIncidents.length} incidents de type "${typeName}"`, 'info');
+}
+
+// Système de filtrage avancé en temps réel
+function setupAdvancedFiltering() {
+    // Filtre par statut
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', (e) => {
+            applyFilters();
+        });
+    }
+    
+    // Filtre par type
+    const typeFilter = document.getElementById('typeFilter');
+    if (typeFilter) {
+        typeFilter.addEventListener('change', (e) => {
+            applyFilters();
+        });
+    }
+    
+    // Filtre par localisation
+    const locationFilter = document.getElementById('locationFilter');
+    if (locationFilter) {
+        locationFilter.addEventListener('change', (e) => {
+            applyFilters();
+        });
+    }
+    
+    // Filtre par période
+    const periodFilter = document.getElementById('periodFilter');
+    if (periodFilter) {
+        periodFilter.addEventListener('change', (e) => {
+            applyFilters();
+        });
+    }
+    
+    // Recherche textuelle
+    const searchInput = document.getElementById('incidentSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce((e) => {
+            applyFilters();
+        }, 300));
+    }
+    
+    console.log('✅ Filtrage avancé configuré');
+}
+
+// Fonction de debounce pour la recherche
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Appliquer tous les filtres
+function applyFilters() {
+    const statusFilter = document.getElementById('statusFilter')?.value || '';
+    const typeFilter = document.getElementById('typeFilter')?.value || '';
+    const locationFilter = document.getElementById('locationFilter')?.value || '';
+    const periodFilter = document.getElementById('periodFilter')?.value || '';
+    const searchQuery = document.getElementById('incidentSearch')?.value || '';
+    
+    console.log('🔍 Application des filtres:', { statusFilter, typeFilter, locationFilter, periodFilter, searchQuery });
+    
+    // Masquer tous les incidents d'abord
+    incidentsLayer.getLayers().forEach(marker => {
+        marker.setOpacity(0.3);
+    });
+    
+    // Filtrer et afficher
+    let visibleCount = 0;
+    incidentsLayer.getLayers().forEach(marker => {
+        const incident = marker.incidentData;
+        if (!incident) return;
+        
+        let shouldShow = true;
+        
+        // Filtre par statut
+        if (statusFilter && incident.etat !== statusFilter) {
+            shouldShow = false;
+        }
+        
+        // Filtre par type
+        if (typeFilter && incident.type_name !== typeFilter) {
+            shouldShow = false;
+        }
+        
+        // Filtre par localisation
+        if (locationFilter) {
+            const location = incident.type_localisation || '';
+            if (locationFilter === 'gare' && !location.toLowerCase().includes('gare')) {
+                shouldShow = false;
+            } else if (locationFilter === 'ligne' && location.toLowerCase().includes('gare')) {
+                shouldShow = false;
+            }
+        }
+        
+        // Filtre par période
+        if (periodFilter && incident.date_creation) {
+            const incidentDate = new Date(incident.date_creation);
+            const now = new Date();
+            const diffHours = (now - incidentDate) / (1000 * 60 * 60);
+            
+            if (periodFilter === '24h' && diffHours > 24) shouldShow = false;
+            else if (periodFilter === '7j' && diffHours > 168) shouldShow = false;
+            else if (periodFilter === '30j' && diffHours > 720) shouldShow = false;
+        }
+        
+        // Filtre par recherche textuelle
+        if (searchQuery) {
+            const searchLower = searchQuery.toLowerCase();
+            const matches = 
+                (incident.type_name && incident.type_name.toLowerCase().includes(searchLower)) ||
+                (incident.resume && incident.resume.toLowerCase().includes(searchLower)) ||
+                (incident.commentaire && incident.commentaire.toLowerCase().includes(searchLower)) ||
+                (incident.localisation_nom && incident.localisation_nom.toLowerCase().includes(searchLower));
+            
+            if (!matches) shouldShow = false;
+        }
+        
+        // Appliquer la visibilité
+        if (shouldShow) {
+            marker.setOpacity(1);
+            visibleCount++;
+        }
+    });
+    
+    // Mettre à jour les statistiques
+    updateMapStats();
+    
+    // Notification
+    showNotification(`Filtrage appliqué: ${visibleCount} incidents visibles`, 'info');
+    
+    // Mettre à jour le compteur de filtres
+    updateFilterCounter(visibleCount);
+}
+
+// Mettre à jour le compteur de filtres
+function updateFilterCounter(visibleCount) {
+    const filterCounter = document.getElementById('filterCounter');
+    if (filterCounter) {
+        filterCounter.textContent = `${visibleCount} incidents visibles`;
+        filterCounter.className = visibleCount > 0 ? 'badge bg-success' : 'badge bg-warning';
+    }
+}
+
+// Réinitialiser tous les filtres
+function resetAllFilters() {
+    const filters = ['statusFilter', 'typeFilter', 'locationFilter', 'periodFilter'];
+    filters.forEach(filterId => {
+        const filter = document.getElementById(filterId);
+        if (filter) filter.value = '';
+    });
+    
+    const searchInput = document.getElementById('incidentSearch');
+    if (searchInput) searchInput.value = '';
+    
+    // Afficher tous les incidents
+    incidentsLayer.getLayers().forEach(marker => {
+        marker.setOpacity(1);
+    });
+    
+    updateMapStats();
+    showNotification('Tous les filtres ont été réinitialisés', 'success');
 }
 
 // Afficher les informations d'une gare
