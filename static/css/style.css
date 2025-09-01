@@ -690,3 +690,236 @@ footer .container {
         padding: 1.5rem;
     }
 } 
+
+/* Styles pour les étiquettes des axes ferroviaires */
+.axe-label {
+    background: transparent;
+    border: none;
+}
+
+.axe-label-content {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    border: 2px solid white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.axe-label-content:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.axe-label-content i {
+    margin-right: 4px;
+}
+
+/* Styles pour les popups des axes */
+.axe-popup {
+    min-width: 250px;
+}
+
+.axe-popup h6 {
+    color: #007bff;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 5px;
+}
+
+.axe-popup .badge {
+    font-size: 10px;
+    margin-right: 5px;
+}
+
+/* Styles pour les polygones des axes */
+.axe-polygon {
+    stroke-dasharray: 5, 5;
+    animation: dash 20s linear infinite;
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: -100;
+    }
+}
+
+/* Styles pour le panneau d'information des axes */
+#info-panel .axe-info {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-left: 4px solid #007bff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+#info-panel .axe-info h6 {
+    color: #007bff;
+    margin-bottom: 10px;
+}
+
+#info-panel .axe-info .badge {
+    font-size: 11px;
+    margin-right: 8px;
+}
+
+/* Responsive pour les étiquettes */
+@media (max-width: 768px) {
+    .axe-label-content {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+    
+    .axe-popup {
+        min-width: 200px;
+    }
+} 
+
+/* Styles pour les multilignes des axes ferroviaires */
+.axe-multiline-label {
+    background: transparent;
+    border: none;
+}
+
+.axe-multiline-label-content {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    border: 1px solid white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.axe-multiline-label-content:hover {
+    transform: scale(1.05);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+
+/* Styles pour les popups des multilignes */
+.axe-multiline-popup {
+    min-width: 280px;
+}
+
+.axe-multiline-popup h6 {
+    color: #007bff;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 5px;
+}
+
+.axe-multiline-popup .badge {
+    font-size: 10px;
+    margin-right: 5px;
+}
+
+/* Styles pour les popups des réseaux */
+.reseau-popup {
+    min-width: 300px;
+}
+
+.reseau-popup h6 {
+    color: #198754;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 5px;
+}
+
+.reseau-popup .badge {
+    font-size: 10px;
+    margin-right: 5px;
+}
+
+/* Styles pour les marqueurs de connexion */
+.connection-marker {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Styles pour les lignes de connexion */
+.connection-line {
+    stroke-dasharray: 5, 5;
+    animation: dash 20s linear infinite;
+}
+
+@keyframes dash {
+    to {
+        stroke-dashoffset: -100;
+    }
+}
+
+/* Styles pour le panneau d'information des réseaux */
+#info-panel .reseau-info {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-left: 4px solid #198754;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+#info-panel .reseau-info h6 {
+    color: #198754;
+    margin-bottom: 10px;
+}
+
+#info-panel .reseau-info .badge {
+    font-size: 11px;
+    margin-right: 8px;
+}
+
+/* Styles pour les étiquettes de réseau */
+.network-label {
+    background: linear-gradient(135deg, #198754, #146c43);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    border: 2px solid white;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+/* Responsive pour les multilignes */
+@media (max-width: 768px) {
+    .axe-multiline-label-content {
+        font-size: 9px;
+        padding: 3px 6px;
+    }
+    
+    .axe-multiline-popup,
+    .reseau-popup {
+        min-width: 250px;
+    }
+    
+    .network-label {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+} 

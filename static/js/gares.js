@@ -495,6 +495,9 @@ function createGareRow(gare) {
     
     const statusClass = gare.etat === 'ACTIVE' ? 'active' : 'passive';
     const statusText = gare.etat === 'ACTIVE' ? 'Active' : 'Passive';
+    const typeDisplay = getGareTypeName(gare.type);
+    const villeDisplay = getVilleName(gare.ville);
+    const regionDisplay = getRegionName(gare.region);
     
     row.innerHTML = `
         <td>
@@ -505,9 +508,9 @@ function createGareRow(gare) {
             <br><small class="text-muted">ID: ${gare.id}</small>
         </td>
         <td>${gare.code || 'N/A'}</td>
-        <td>${gare.type || 'Non défini'}</td>
-        <td>${gare.region || 'Non définie'}</td>
-        <td>${gare.ville || 'Non définie'}</td>
+        <td>${typeDisplay}</td>
+        <td>${regionDisplay}</td>
+        <td>${villeDisplay}</td>
         <td>
             <span class="gare-status ${statusClass}"></span>
             ${statusText}
@@ -559,6 +562,9 @@ function showGareDetails(gareId) {
                 const gare = data.data;
                 selectedGare = gare;
                 
+                // Formater les détails pour l'affichage
+                const gareFormatted = formatGareDetails(gare);
+                
                 content.innerHTML = `
                     <div class="row">
                         <div class="col-md-6">
@@ -578,7 +584,7 @@ function showGareDetails(gareId) {
                                 </tr>
                                 <tr>
                                     <td><strong>Type:</strong></td>
-                                    <td>${gare.type || 'Non défini'}</td>
+                                    <td>${gareFormatted.type_display}</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Type Commercial:</strong></td>
@@ -588,13 +594,13 @@ function showGareDetails(gareId) {
                                     <td><strong>État:</strong></td>
                                     <td>
                                         <span class="badge bg-${gare.etat === 'ACTIVE' ? 'success' : 'secondary'}">
-                                            ${gare.etat === 'ACTIVE' ? 'Active' : 'Passive'}
+                                            ${gareFormatted.etat_display}
                                         </span>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td><strong>Statut:</strong></td>
-                                    <td>${gare.statut || 'Non défini'}</td>
+                                    <td>${gareFormatted.statut_display}</td>
                                 </tr>
                             </table>
                         </div>
@@ -603,11 +609,11 @@ function showGareDetails(gareId) {
                             <table class="table table-sm">
                                 <tr>
                                     <td><strong>Région:</strong></td>
-                                    <td>${gare.region || 'Non définie'}</td>
+                                    <td>${gareFormatted.region_display}</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Ville:</strong></td>
-                                    <td>${gare.ville || 'Non définie'}</td>
+                                    <td>${gareFormatted.ville_display}</td>
                                 </tr>
                                 <tr>
                                     <td><strong>Section:</strong></td>
@@ -1270,3 +1276,105 @@ window.initGareMap = initGareMap;
 window.removeFilter = removeFilter;
 window.clearAllFilters = clearAllFilters;
 window.applyQuickFilter = applyQuickFilter; 
+
+// Fonction pour convertir les codes de type de gare en noms descriptifs
+function getGareTypeName(typeCode) {
+    const typeNames = {
+        '141': 'Gare Principale',
+        '132': 'Gare Secondaire', 
+        '85': 'Gare de Passage',
+        '15': 'Halte',
+        '0': 'Point d\'Arrêt',
+        '18': 'Gare de Triage',
+        '89': 'Gare de Marchandises',
+        '1': 'Gare de Voyageurs',
+        '7': 'Gare de Correspondance',
+        '88': 'Gare de Transit',
+        '101': 'Gare de Banlieue',
+        '24': 'Gare de Proximité',
+        '52': 'Gare Régionale',
+        '31': 'Gare Intercité',
+        '35': 'Gare TGV',
+        '74': 'Gare de Cargo',
+        '167': 'Gare de Maintenance',
+        '61': 'Gare de Dépôt',
+        '177': 'Gare de Service',
+        '209': 'Gare de Contrôle',
+        '94': 'Gare de Sécurité',
+        '96': 'Gare de Surveillance',
+        '5': 'Gare de Transit',
+        '116': 'Gare de Distribution',
+        '107': 'Gare de Collecte',
+        '64': 'Gare de Manœuvre',
+        '10': 'Gare de Passage',
+        '11': 'Gare de Croisement',
+        '58': 'Gare de Raccordement'
+    };
+    
+    return typeNames[typeCode] || `Type ${typeCode}`;
+}
+
+// Fonction pour convertir les codes de ville en noms
+function getVilleName(villeCode) {
+    const villeNames = {
+        '620': 'Casablanca',
+        '621': 'Rabat',
+        '622': 'Marrakech',
+        '623': 'Fès',
+        '624': 'Meknès',
+        '625': 'Tanger',
+        '626': 'Agadir',
+        '627': 'Oujda',
+        '628': 'Kénitra',
+        '629': 'Mohammedia',
+        '630': 'Safi',
+        '631': 'Taza',
+        '632': 'Nador',
+        '633': 'El Jadida',
+        '634': 'Beni Mellal',
+        '635': 'Ouarzazate',
+        '636': 'Al Hoceima',
+        '637': 'Tétouan',
+        '638': 'Larache',
+        '639': 'Khémisset',
+        '640': 'Sidi Kacem',
+        '641': 'Sidi Slimane',
+        '642': 'Benguerir',
+        '643': 'El Aria',
+        '644': 'Oued Amlil'
+    };
+    
+    return villeNames[villeCode] || `Ville ${villeCode}`;
+}
+
+// Fonction pour convertir les codes de région en noms
+function getRegionName(regionCode) {
+    const regionNames = {
+        '1': 'Casablanca-Settat',
+        '2': 'Rabat-Salé-Kénitra',
+        '3': 'Marrakech-Safi',
+        '4': 'Fès-Meknès',
+        '5': 'Tanger-Tétouan-Al Hoceima',
+        '6': 'Souss-Massa',
+        '7': 'Oriental',
+        '8': 'Béni Mellal-Khénifra',
+        '9': 'Drâa-Tafilalet',
+        '10': 'Guelmim-Oued Noun',
+        '11': 'Laâyoune-Sakia El Hamra',
+        '12': 'Dakhla-Oued Ed-Dahab'
+    };
+    
+    return regionNames[regionCode] || `Région ${regionCode}`;
+}
+
+// Fonction pour formater l'affichage des détails de gare
+function formatGareDetails(gare) {
+    return {
+        ...gare,
+        type_display: getGareTypeName(gare.type),
+        ville_display: getVilleName(gare.ville),
+        region_display: getRegionName(gare.region),
+        etat_display: gare.etat === 'ACTIVE' ? 'Active' : 'Passive',
+        statut_display: gare.statut || 'Non défini'
+    };
+} 

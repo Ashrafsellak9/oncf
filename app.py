@@ -9,6 +9,7 @@ import json
 import os
 from dotenv import load_dotenv
 from datetime import datetime
+from sqlalchemy import func
 
 # Import optionnel de pandas (pas nécessaire pour le fonctionnement de base)
 try:
@@ -219,6 +220,49 @@ class RefEntites(db.Model):
     deleted = db.Column(db.Boolean)
 
 # API Routes
+def parse_wkt_point(wkt_string):
+    """Parser une géométrie WKT pour extraire les coordonnées d'un point"""
+    try:
+        if not wkt_string:
+            return None
+        
+        # Vérifier si c'est un POINT WKT
+        if 'SRID=3857;POINT (' in wkt_string:
+            # Extraire les coordonnées entre parenthèses
+            coords_str = wkt_string.split('POINT (')[1].rstrip(')')
+            coords = coords_str.split()
+            
+            if len(coords) >= 2:
+                x = float(coords[0])
+                y = float(coords[1])
+                
+                # Conversion de EPSG:3857 (Web Mercator) vers EPSG:4326 (WGS84)
+                try:
+                    from pyproj import Transformer
+                    transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+                    lon, lat = transformer.transform(x, y)
+                    
+                    # Vérifier si les coordonnées sont dans les limites du Maroc
+                    if -10 <= lon <= -1 and 27 <= lat <= 37:
+                        return f"POINT({lon} {lat})"
+                    else:
+                        print(f"Coordonnées hors limites Maroc: Lon={lon:.6f}, Lat={lat:.6f}")
+                        return None
+                        
+                except ImportError:
+                    # Fallback si pyproj n'est pas disponible
+                    print("pyproj non disponible pour conversion EPSG:3857")
+                    return None
+                except Exception as e:
+                    print(f"Erreur conversion EPSG:3857: {e}")
+                    return None
+        
+        return None
+        
+    except Exception as e:
+        print(f"Erreur parsing WKT: {e}")
+        return None
+
 def parse_wkb_point(wkb_hex):
     """Parser une géométrie WKB hexadécimale pour extraire les coordonnées d'un point"""
     try:
@@ -462,11 +506,11 @@ def api_gares():
         
         gares_data = []
         for gare in gares:
-            # Parser la géométrie WKB seulement si elle existe
+            # Parser la géométrie WKT seulement si elle existe
             geometrie_wkt = None
             if gare.geometrie:
                 try:
-                    geometrie_wkt = parse_wkb_point(gare.geometrie)
+                    geometrie_wkt = parse_wkt_point(gare.geometrie)
                 except Exception as e:
                     print(f"Erreur parsing géométrie pour gare {gare.id}: {e}")
                     geometrie_wkt = None
@@ -789,6 +833,61 @@ def api_delete_gare(gare_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
 
+def parse_wkt_linestring(wkt_string):
+    """Parser une géométrie WKT pour extraire les coordonnées d'une ligne"""
+    try:
+        if not wkt_string:
+            return None
+        
+        # Vérifier si c'est un LINESTRING WKT
+        if 'SRID=3857;LINESTRING(' in wkt_string:
+            # Extraire les coordonnées entre parenthèses
+            coords_str = wkt_string.split('LINESTRING(')[1].rstrip(')')
+        elif 'SRID=3857;LINESTRING (' in wkt_string:
+            # Extraire les coordonnées entre parenthèses (avec espace)
+            coords_str = wkt_string.split('LINESTRING (')[1].rstrip(')')
+        else:
+            return None
+            
+        # Parser les points de la ligne
+        points = []
+        for point_str in coords_str.split(','):
+            coords = point_str.strip().split()
+            if len(coords) >= 2:
+                x = float(coords[0])
+                y = float(coords[1])
+                
+                # Conversion de EPSG:3857 (Web Mercator) vers EPSG:4326 (WGS84)
+                try:
+                    from pyproj import Transformer
+                    transformer = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+                    lon, lat = transformer.transform(x, y)
+                    
+                    # Filtrer les coordonnées invalides ou hors des limites du Maroc
+                    if (lon is not None and lat is not None and 
+                        not (lon == 0 and lat == 0) and  # Éviter les coordonnées nulles
+                        not (abs(lat) < 0.001) and       # Éviter les latitudes proches de 0
+                        -10 <= lon <= -1 and 27 <= lat <= 37):  # Limites du Maroc
+                        points.append(f"{lon} {lat}")
+                    else:
+                        print(f"Coordonnée filtrée: Lon={lon}, Lat={lat}")
+                        
+                except ImportError:
+                    print("pyproj non disponible pour conversion EPSG:3857")
+                    return None
+                except Exception as e:
+                    print(f"Erreur conversion EPSG:3857: {e}")
+                    return None
+        
+        if len(points) >= 2:
+            return f"LINESTRING({','.join(points)})"
+        
+        return None
+        
+    except Exception as e:
+        print(f"Erreur parsing WKT LineString: {e}")
+        return None
+
 def parse_wkb_linestring(wkb_hex):
     """Parser une géométrie WKB hexadécimale pour extraire les coordonnées d'une ligne"""
     try:
@@ -849,22 +948,59 @@ def api_arcs():
     try:
         # Utiliser SQLAlchemy pour récupérer les données
         arcs = GrapheArc.query.limit(50).all()
-        arcs_data = []
+        
+        # Grouper les arcs par nom d'axe pour créer des lignes complètes
+        axes_groups = {}
         
         for arc in arcs:
-            # Parser la géométrie WKB
-            geometrie_wkt = parse_wkb_linestring(arc.geometrie)
+            axe_name = arc.nom_axe
+            if axe_name not in axes_groups:
+                axes_groups[axe_name] = []
+            axes_groups[axe_name].append(arc)
+        
+        arcs_data = []
+        
+        for axe_name, axe_segments in axes_groups.items():
+            # Trier les segments par PK pour avoir un ordre logique
+            axe_segments.sort(key=lambda x: float(x.pk_debut) if x.pk_debut else 0)
             
-            arc_dict = {
-                'id': arc.id,
-                'axe': arc.axe,
-                'plod': arc.plod,
-                'plof': arc.plof,
-                'cumuld': float(arc.cumuld) if arc.cumuld else None,
-                'cumulf': float(arc.cumulf) if arc.cumulf else None,
-                'geometrie': geometrie_wkt
-            }
-            arcs_data.append(arc_dict)
+            # Collecter tous les points de tous les segments
+            all_points = []
+            
+            for segment in axe_segments:
+                geometrie_wkt = parse_wkt_linestring(segment.geometrie)
+                if geometrie_wkt:
+                    # Extraire les points du segment
+                    coords_str = geometrie_wkt.replace('LINESTRING(', '').replace(')', '')
+                    points = coords_str.split(',')
+                    
+                    for point in points:
+                        coords = point.strip().split()
+                        if len(coords) >= 2:
+                            lon, lat = float(coords[0]), float(coords[1])
+                            all_points.append(f"{lon} {lat}")
+            
+            # Créer une ligne complète si on a au moins 2 points
+            if len(all_points) >= 2:
+                complete_linestring = f"LINESTRING({','.join(all_points)})"
+                
+                # Utiliser les données du premier segment pour les métadonnées
+                first_segment = axe_segments[0]
+                
+                arc_dict = {
+                    'id': first_segment.id,
+                    'axe': axe_name,
+                    'axe_id': first_segment.axe_id,
+                    'plod': first_segment.plod,
+                    'plof': first_segment.plof,
+                    'pk_debut': float(first_segment.pk_debut) if first_segment.pk_debut else None,
+                    'pk_fin': float(first_segment.pk_fin) if first_segment.pk_fin else None,
+                    'absd': float(first_segment.absd) if first_segment.absd else None,
+                    'absf': float(first_segment.absf) if first_segment.absf else None,
+                    'geometrie': complete_linestring,
+                    'nombre_segments': len(axe_segments)
+                }
+                arcs_data.append(arc_dict)
         
         return jsonify({'success': True, 'data': arcs_data})
     except Exception as e:
@@ -1091,6 +1227,16 @@ def api_statistiques():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+def get_order_clause(sort):
+    """Générer la clause ORDER BY selon le paramètre de tri"""
+    order_mapping = {
+        'date_desc': 'e.date_debut DESC',
+        'date_asc': 'e.date_debut ASC',
+        'status': 'e.etat ASC',
+        'type': 't.intitule ASC'
+    }
+    return order_mapping.get(sort, 'e.date_debut DESC')
+
 @app.route('/api/evenements')
 def api_evenements():
     try:
@@ -1099,6 +1245,16 @@ def api_evenements():
         statut = request.args.get('statut', '')
         search = request.args.get('search', '')
         period = request.args.get('period', '')
+        type_id = request.args.get('type_id', '')
+        sous_type_id = request.args.get('sous_type_id', '')
+        source_id = request.args.get('source_id', '')
+        system_id = request.args.get('system_id', '')
+        entite_id = request.args.get('entite_id', '')
+        localisation_id = request.args.get('localisation_id', '')
+        impact_service = request.args.get('impact_service', '')
+        sort = request.args.get('sort', 'date_desc')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
         
         # Utiliser des requêtes SQL directes
         import psycopg2.extras
@@ -1117,6 +1273,42 @@ def api_evenements():
             where_conditions.append("(e.resume ILIKE %s OR e.commentaire ILIKE %s OR e.entite ILIKE %s)")
             search_param = f'%{search}%'
             params.extend([search_param, search_param, search_param])
+        
+        if type_id:
+            where_conditions.append("e.type_id = %s")
+            params.append(type_id)
+        
+        if sous_type_id:
+            where_conditions.append("e.sous_type_id = %s")
+            params.append(sous_type_id)
+        
+        if source_id:
+            where_conditions.append("e.source_id = %s")
+            params.append(source_id)
+        
+        if system_id:
+            where_conditions.append("e.system_id = %s")
+            params.append(system_id)
+        
+        if entite_id:
+            where_conditions.append("e.entite_id = %s")
+            params.append(entite_id)
+        
+        if localisation_id:
+            where_conditions.append("e.localisation_id = %s")
+            params.append(localisation_id)
+        
+        if impact_service:
+            where_conditions.append("e.impact_service = %s")
+            params.append(impact_service)
+        
+        if start_date:
+            where_conditions.append("e.date_debut >= %s")
+            params.append(start_date)
+        
+        if end_date:
+            where_conditions.append("e.date_debut <= %s")
+            params.append(end_date)
         
         if period:
             from datetime import datetime, timedelta
@@ -1141,27 +1333,59 @@ def api_evenements():
         cursor.execute(f"SELECT COUNT(*) FROM gpr.ge_evenement e {where_clause}", params)
         total = cursor.fetchone()[0]
         
-        # Récupérer les données paginées avec les noms des références
-        offset = (page - 1) * per_page
+        # Récupérer TOUS les incidents avec toutes les informations géographiques
         cursor.execute(f"""
-            SELECT e.id, e.date_debut, e.date_fin, e.heure_debut, e.heure_fin, e.etat, 
-                   e.resume, e.type_id, e.sous_type_id, e.source_id,
-                   e.entite, e.impact_service, e.commentaire,
-                   t.intitule as type_name,
-                   st.intitule as sous_type_name,
-                   s.intitule as source_name,
-                   sys.intitule as system_name,
-                   ent.intitule as entite_name
+            SELECT 
+                e.id, e.date_debut, e.date_fin, e.heure_debut, e.heure_fin, e.etat, 
+                e.resume, e.type_id, e.sous_type_id, e.source_id, e.system_id, e.entite_id,
+                e.entite, e.impact_service, e.commentaire,
+                e.localisation_id,
+                t.intitule as type_name,
+                st.intitule as sous_type_name,
+                s.intitule as source_name,
+                sys.intitule as system_name,
+                ent.intitule as entite_name,
+                -- Informations de localisation
+                l.autre as localisation_nom,
+                l.pk_debut, l.pk_fin, l.gare_debut_id, l.gare_fin_id, l.type_localisation,
+                -- Informations des gares (via localisation)
+                g1.nomgarefr as gare_debut_nom, g1.geometrie as gare_debut_geom,
+                g2.nomgarefr as gare_fin_nom, g2.geometrie as gare_fin_geom
             FROM gpr.ge_evenement e
             LEFT JOIN gpr.ref_types t ON e.type_id = t.id
             LEFT JOIN gpr.ref_sous_types st ON e.sous_type_id = st.id
             LEFT JOIN gpr.ref_sources s ON e.source_id = s.id
             LEFT JOIN gpr.ref_systemes sys ON e.system_id = sys.id
             LEFT JOIN gpr.ref_entites ent ON e.entite_id = ent.id
+            LEFT JOIN gpr.ge_localisation l ON e.localisation_id = l.id
+            LEFT JOIN gpr.gpd_gares_ref g1 ON l.gare_debut_id = g1.code_gare
+            LEFT JOIN gpr.gpd_gares_ref g2 ON l.gare_fin_id = g2.code_gare
             {where_clause}
-            ORDER BY e.date_debut DESC 
-            LIMIT %s OFFSET %s
-        """, params + [per_page, offset])
+            ORDER BY {get_order_clause(sort)}
+        """, params)
+        # Supprimer la pagination - afficher tous les incidents
+        # else:
+        #     # Pagination normale
+        #     offset = (page - 1) * per_page
+        #     cursor.execute(f"""
+        #         SELECT e.id, e.date_debut, e.date_fin, e.heure_debut, e.heure_fin, e.etat, 
+        #                e.resume, e.type_id, e.sous_type_id, e.source_id,
+        #                e.entite, e.impact_service, e.commentaire,
+        #                t.intitule as type_name,
+        #                st.intitule as sous_type_name,
+        #                s.intitule as source_name,
+        #                sys.intitule as system_name,
+        #                ent.intitule as entite_name
+        #         FROM gpr.ge_evenement e
+        #         LEFT JOIN gpr.ref_types t ON e.type_id = t.id
+        #         LEFT JOIN gpr.ref_sous_types st ON e.sous_type_id = st.id
+        #         LEFT JOIN gpr.ref_sources s ON e.source_id = s.id
+        #         LEFT JOIN gpr.ref_systemes sys ON e.system_id = sys.id
+        #         LEFT JOIN gpr.ref_entites ent ON e.entite_id = ent.id
+        #         {where_clause}
+        #         ORDER BY e.date_debut DESC 
+        #         LIMIT %s OFFSET %s
+        #     """, params + [per_page, offset])
         
         evenements = cursor.fetchall()
         
@@ -1171,51 +1395,65 @@ def api_evenements():
             if len(description) > 200:
                 description = description[:200] + '...'
             
-            # Déterminer les coordonnées de l'incident basées sur la description
+            # Déterminer les coordonnées de l'incident en priorité :
+            # 1. Géométrie de localisation
+            # 2. Géométrie de gare début
+            # 3. Géométrie de gare fin
+            # 4. Coordonnées basées sur PK et description
             incident_coords = None
             incident_location = None
             
-            # Coordonnées approximatives pour différentes régions du Maroc
-            maroc_coords = {
-                'casa': [33.5731, -7.5898],      # Casablanca
-                'rabat': [34.0209, -6.8416],     # Rabat
-                'marrakech': [31.6295, -7.9811], # Marrakech
-                'fes': [34.0181, -5.0078],       # Fès
-                'meknes': [33.8935, -5.5473],    # Meknès
-                'tanger': [35.7595, -5.8340],    # Tanger
-                'agadir': [30.4278, -9.5981],    # Agadir
-                'oujda': [34.6814, -1.9086],     # Oujda
-                'kenitra': [34.2610, -6.5802],   # Kénitra
-                'mohammedia': [33.6833, -7.3833], # Mohammedia
-                'safi': [32.2833, -9.2333],      # Safi
-                'taza': [34.2167, -4.0167],      # Taza
-                'nador': [35.1683, -2.9273],     # Nador
-                'el jadida': [33.2333, -8.5000], # El Jadida
-                'beni mellal': [32.3373, -6.3498], # Beni Mellal
-                'ouarzazate': [30.9200, -6.9100], # Ouarzazate
-                'al hoceima': [35.2492, -3.9371], # Al Hoceima
-                'tetouan': [35.5711, -5.3724],   # Tétouan
-                'larache': [35.1833, -6.1500],   # Larache
-                'khemisset': [33.8167, -6.0667], # Khémisset
-                'sidi kacem': [34.2167, -5.7000], # Sidi Kacem
-                'sidi slimane': [34.2667, -5.9333], # Sidi Slimane
-                'benguerir': [32.2500, -7.9500], # Benguerir
-                'el aria': [32.4833, -8.0167],   # El Aria
-                'oued amlil': [34.2000, -4.2833], # Oued Amlil
-            }
-            
-            # Essayer de trouver des coordonnées basées sur la description
-            description_lower = description.lower()
-            for key, coords in maroc_coords.items():
-                if key in description_lower:
-                    incident_coords = f"POINT({coords[1]} {coords[0]})"
-                    incident_location = key.replace('_', ' ').title()
-                    break
-            
-            # Si aucune correspondance, utiliser des coordonnées par défaut
-            if not incident_coords:
-                incident_coords = "POINT(-7.0926 31.7917)"  # Centre du Maroc
-                incident_location = "Localisation approximative"
+            # 1. Vérifier la géométrie de gare début
+            if evt['gare_debut_geom']:
+                incident_coords = evt['gare_debut_geom']
+                incident_location = f"Gare: {evt['gare_debut_nom']}" if evt['gare_debut_nom'] else "Gare de début"
+            # 2. Vérifier la géométrie de gare fin
+            elif evt['gare_fin_geom']:
+                incident_coords = evt['gare_fin_geom']
+                incident_location = f"Gare: {evt['gare_fin_nom']}" if evt['gare_fin_nom'] else "Gare de fin"
+            # 3. Coordonnées basées sur PK et description
+            else:
+                # Coordonnées approximatives pour différentes régions du Maroc
+                maroc_coords = {
+                    'casa': [33.5731, -7.5898],      # Casablanca
+                    'rabat': [34.0209, -6.8416],     # Rabat
+                    'marrakech': [31.6295, -7.9811], # Marrakech
+                    'fes': [34.0181, -5.0078],       # Fès
+                    'meknes': [33.8935, -5.5473],    # Meknès
+                    'tanger': [35.7595, -5.8340],    # Tanger
+                    'agadir': [30.4278, -9.5981],    # Agadir
+                    'oujda': [34.6814, -1.9086],     # Oujda
+                    'kenitra': [34.2610, -6.5802],   # Kénitra
+                    'mohammedia': [33.6833, -7.3833], # Mohammedia
+                    'safi': [32.2833, -9.2333],      # Safi
+                    'taza': [34.2167, -4.0167],      # Taza
+                    'nador': [35.1683, -2.9273],     # Nador
+                    'el jadida': [33.2333, -8.5000], # El Jadida
+                    'beni mellal': [32.3373, -6.3498], # Beni Mellal
+                    'ouarzazate': [30.9200, -6.9100], # Ouarzazate
+                    'al hoceima': [35.2492, -3.9371], # Al Hoceima
+                    'tetouan': [35.5711, -5.3724],   # Tétouan
+                    'larache': [35.1833, -6.1500],   # Larache
+                    'khemisset': [33.8167, -6.0667], # Khémisset
+                    'sidi kacem': [34.2167, -5.7000], # Sidi Kacem
+                    'sidi slimane': [34.2667, -5.9333], # Sidi Slimane
+                    'benguerir': [32.2500, -7.9500], # Benguerir
+                    'el aria': [32.4833, -8.0167],   # El Aria
+                    'oued amlil': [34.2000, -4.2833], # Oued Amlil
+                }
+                
+                # Essayer de trouver des coordonnées basées sur la description
+                description_lower = description.lower()
+                for key, coords in maroc_coords.items():
+                    if key in description_lower:
+                        incident_coords = f"POINT({coords[1]} {coords[0]})"
+                        incident_location = key.replace('_', ' ').title()
+                        break
+                
+                # Si aucune correspondance, utiliser des coordonnées par défaut
+                if not incident_coords:
+                    incident_coords = "POINT(-7.0926 31.7917)"  # Centre du Maroc
+                    incident_location = "Localisation approximative"
             
             evt_dict = {
                 'id': evt['id'],
@@ -1236,7 +1474,17 @@ def api_evenements():
                 'entite_name': evt['entite_name'],
                 'impact_service': evt['impact_service'],
                 'geometrie': incident_coords,
-                'location_name': incident_location
+                'location_name': incident_location,
+                # Informations géographiques détaillées (via localisation)
+                'pk_debut': evt['pk_debut'],
+                'pk_fin': evt['pk_fin'],
+                'type_localisation': evt.get('type_localisation'),
+                'gare_debut_id': evt['gare_debut_id'],
+                'gare_debut_nom': evt['gare_debut_nom'],
+                'gare_fin_id': evt['gare_fin_id'],
+                'gare_fin_nom': evt['gare_fin_nom'],
+                'localisation_id': evt['localisation_id'],
+                'localisation_nom': evt['localisation_nom']
             }
             evenements_data.append(evt_dict)
         
@@ -1248,12 +1496,14 @@ def api_evenements():
         return jsonify({
             'success': True, 
             'data': evenements_data,
+            'total': len(evenements_data),
             'pagination': {
                 'page': page,
                 'pages': pages,
-                'per_page': per_page,
-                'total': total
-            }
+                'total': total,
+                'per_page': per_page
+            },
+            'message': f'✅ {len(evenements_data)} incidents chargés avec toutes les informations géographiques'
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -1496,6 +1746,87 @@ def api_delete_evenement(evenement_id):
         conn.close()
         
         return jsonify({'success': True, 'message': 'Incident supprimé avec succès'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/evenements/types')
+def api_evenements_types():
+    """Récupérer tous les types d'événements/incidents"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cur.execute("""
+            SELECT id, intitule as nom, intitule as description
+            FROM gpr.ref_types
+            WHERE deleted = false
+            ORDER BY intitule
+        """)
+        
+        types = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': [dict(type) for type in types]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/evenements/sources')
+def api_evenements_sources():
+    """Récupérer toutes les sources d'événements/incidents"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cur.execute("""
+            SELECT id, intitule as nom, intitule as description
+            FROM gpr.ref_sources
+            WHERE deleted = false
+            ORDER BY intitule
+        """)
+        
+        sources = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': [dict(source) for source in sources]
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/evenements/systemes')
+def api_evenements_systemes():
+    """Récupérer tous les systèmes d'événements/incidents"""
+    try:
+        import psycopg2.extras
+        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cur.execute("""
+            SELECT id, intitule as nom, intitule as description
+            FROM gpr.ref_systemes
+            WHERE deleted = false
+            ORDER BY intitule
+        """)
+        
+        systemes = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'data': [dict(systeme) for systeme in systemes]
+        })
         
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -1945,7 +2276,7 @@ def api_reference_types():
         cursor.execute("""
             SELECT id, intitule, entite_type_id, date_maj, etat
             FROM gpr.ref_types 
-            WHERE (etat = 't' OR etat IS NULL) AND (deleted = false OR deleted IS NULL)
+            WHERE (etat = 't' OR etat IS NULL) AND (deleted = 'f' OR deleted IS NULL)
             ORDER BY intitule
         """)
         
@@ -1964,10 +2295,7 @@ def api_reference_types():
         cursor.close()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'data': data
-        })
+        return jsonify(data)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -2012,10 +2340,7 @@ def api_reference_sous_types():
         cursor.close()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'data': data
-        })
+        return jsonify(data)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -2050,10 +2375,7 @@ def api_reference_systemes():
         cursor.close()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'data': data
-        })
+        return jsonify(data)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -2088,10 +2410,7 @@ def api_reference_sources():
         cursor.close()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'data': data
-        })
+        return jsonify(data)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -2122,10 +2441,7 @@ def api_reference_entites():
         cursor.close()
         conn.close()
         
-        return jsonify({
-            'success': True,
-            'data': data
-        })
+        return jsonify(data)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -2150,6 +2466,258 @@ def api_reference_localisations():
         return jsonify(localisations)
     except Exception as e:
         return jsonify([])
+
+@app.route('/api/arcs-names')
+def api_arcs_names():
+    """API pour récupérer les noms des axes sans géométrie"""
+    try:
+        # Récupérer tous les axes uniques avec leurs informations de base
+        axes_data = db.session.query(
+            GrapheArc.nom_axe,
+            func.count(GrapheArc.id).label('segment_count'),
+            func.min(GrapheArc.pk_debut).label('pk_min'),
+            func.max(GrapheArc.pk_fin).label('pk_max'),
+            func.min(GrapheArc.plod).label('plod_min'),
+            func.max(GrapheArc.plof).label('plof_max')
+        ).group_by(GrapheArc.nom_axe).all()
+        
+        axes_list = []
+        for axe in axes_data:
+            # Déterminer le type d'axe basé sur le nom
+            axe_type = 'Ligne Classique'
+            if axe.nom_axe and 'LGV' in axe.nom_axe:
+                axe_type = 'Ligne à Grande Vitesse'
+            elif axe.nom_axe and ('RAC' in axe.nom_axe or 'TRIANGLE' in axe.nom_axe):
+                axe_type = 'Raccordement'
+            elif axe.nom_axe and 'U' in axe.nom_axe:
+                axe_type = 'Ligne Urbaine'
+            
+            axes_list.append({
+                'nom': axe.nom_axe,
+                'type': axe_type,
+                'segments': axe.segment_count,
+                'pk_debut': float(axe.pk_min) if axe.pk_min else None,
+                'pk_fin': float(axe.pk_max) if axe.pk_max else None,
+                'plod': axe.plod_min,
+                'plof': axe.plof_max
+            })
+        
+        return jsonify({
+            'success': True,
+            'axes': axes_list,
+            'total': len(axes_list)
+        })
+        
+    except Exception as e:
+        print(f"Erreur dans api_arcs_names: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/arcs-multilines')
+def api_arcs_multilines():
+    """API pour récupérer les axes avec leurs vraies connexions géographiques"""
+    try:
+        # Récupérer tous les axes uniques avec leurs informations de base
+        axes_data = db.session.query(
+            GrapheArc.nom_axe,
+            func.count(GrapheArc.id).label('segment_count'),
+            func.min(GrapheArc.pk_debut).label('pk_min'),
+            func.max(GrapheArc.pk_fin).label('pk_max'),
+            func.min(GrapheArc.plod).label('plod_min'),
+            func.max(GrapheArc.plof).label('plof_max')
+        ).group_by(GrapheArc.nom_axe).all()
+        
+        # Créer un dictionnaire des axes avec leurs vraies connexions géographiques
+        axes_connections = {}
+        
+        for axe in axes_data:
+            axe_name = axe.nom_axe
+            if axe_name not in axes_connections:
+                axes_connections[axe_name] = {
+                    'nom': axe_name,
+                    'segments': axe.segment_count,
+                    'pk_debut': float(axe.pk_min) if axe.pk_min else None,
+                    'pk_fin': float(axe.pk_max) if axe.pk_max else None,
+                    'plod': axe.plod_min,
+                    'plof': axe.plof_max,
+                    'connexions': [],
+                    'couleur': getAxeColor(axe_name),
+                    'type': getAxeType(axe_name)
+                }
+        
+        # Définir les vraies connexions géographiques entre les axes
+        connexions_geographiques = {
+            # Axe principal Casablanca - Rabat - Kénitra - Tanger
+            'CASA VOYAGEURS/MARRAKECH': ['CASAVOYAGEURS/SKACEM', 'BENGUERIR/SAFI U'],
+            'CASAVOYAGEURS/SKACEM': ['CASA VOYAGEURS/MARRAKECH', 'TANGER/FES', 'NOUACEUR/ELJADIDAV2'],
+            'TANGER/FES': ['CASAVOYAGEURS/SKACEM', 'OUJDA/FRONTIERE ALGERIENNE'],
+            'OUJDA/FRONTIERE ALGERIENNE': ['TANGER/FES', 'BENI ENSAR/TAOURIRT RAC'],
+            'BENI ENSAR/TAOURIRT RAC': ['OUJDA/FRONTIERE ALGERIENNE'],
+            
+            # Axe El Jadida - Casablanca
+            'BENGUERIR/SAFI U': ['CASA VOYAGEURS/MARRAKECH', 'EL JADIDA/EL JORF'],
+            'EL JADIDA/EL JORF': ['BENGUERIR/SAFI U'],
+            
+            # Axe Casablanca - Marrakech
+            'CASA VOYAGEURS/MARRAKECH': ['CASAVOYAGEURS/SKACEM', 'BENGUERIR/SAFI U'],
+            
+            # Axe Casablanca - Sidi Kacem
+            'CASAVOYAGEURS/SKACEM': ['CASA VOYAGEURS/MARRAKECH', 'TANGER/FES', 'NOUACEUR/ELJADIDAV2'],
+            
+            # Axe Nouaceur - El Jadida
+            'NOUACEUR/ELJADIDAV2': ['CASAVOYAGEURS/SKACEM', 'EL JADIDA/EL JORF'],
+            
+            # LGV connectée aux axes principaux
+            'LGV_V2': ['CASAVOYAGEURS/SKACEM', 'TANGER/FES'],
+            
+            # Raccordements
+            'S.ELAIDI/OUED ZEM': ['CASAVOYAGEURS/SKACEM', 'BENGUERIR/SAFI U'],
+            'TRIANGLE DE NOUACEUR U': ['NOUACEUR/ELJADIDAV2', 'CASAVOYAGEURS/SKACEM'],
+            'RAC_Sidi_Kacem': ['CASAVOYAGEURS/SKACEM', 'TANGER/FES'],
+            
+            # Axe oriental
+            'BENI OUKIL/BOUARFA': ['OUJDA/FRONTIERE ALGERIENNE'],
+            'GUENFOUDA/HASSI BLAL_U': ['BENI ENSAR/TAOURIRT RAC'],
+            
+            # Axe Tanger - Méditerranée
+            'ArcTangerMorora_Med': ['TANGER/FES'],
+            
+            # Axe Casablanca - Sidi Yahya
+            'S.YAHYA_MACHRAA BEL KSIRI': ['CASAVOYAGEURS/SKACEM'],
+            
+            # Axe Beni Ansar - Taourirt
+            'Bni.Ansart_Taourirt': ['BENI ENSAR/TAOURIRT RAC']
+        }
+        
+        # Ajouter les connexions aux axes
+        for axe_name, connexions in connexions_geographiques.items():
+            if axe_name in axes_connections:
+                for connexion in connexions:
+                    if connexion in axes_connections:
+                        axes_connections[axe_name]['connexions'].append(connexion)
+        
+        # Créer des lignes connectées (pas de réseaux, juste des connexions directes)
+        lignes_connectees = []
+        
+        # Créer les lignes principales
+        lignes_principales = [
+            # Ligne principale Casablanca - Tanger
+            ['CASA VOYAGEURS/MARRAKECH', 'CASAVOYAGEURS/SKACEM', 'TANGER/FES', 'OUJDA/FRONTIERE ALGERIENNE', 'BENI ENSAR/TAOURIRT RAC'],
+            # Ligne Casablanca - El Jadida
+            ['CASA VOYAGEURS/MARRAKECH', 'BENGUERIR/SAFI U', 'EL JADIDA/EL JORF'],
+            # Ligne Casablanca - Marrakech
+            ['CASA VOYAGEURS/MARRAKECH'],
+            # Ligne Nouaceur - El Jadida
+            ['NOUACEUR/ELJADIDAV2', 'EL JADIDA/EL JORF'],
+            # LGV
+            ['LGV_V2'],
+            # Raccordements
+            ['S.ELAIDI/OUED ZEM'],
+            ['TRIANGLE DE NOUACEUR U'],
+            ['RAC_Sidi_Kacem'],
+            ['BENI OUKIL/BOUARFA'],
+            ['GUENFOUDA/HASSI BLAL_U'],
+            ['ArcTangerMorora_Med'],
+            ['S.YAHYA_MACHRAA BEL KSIRI'],
+            ['Bni.Ansart_Taourirt']
+        ]
+        
+        # Créer les lignes avec leurs axes
+        for i, ligne_axes in enumerate(lignes_principales):
+            ligne = {
+                'id': i + 1,
+                'nom': f'Ligne {i + 1}',
+                'axes': []
+            }
+            
+            for axe_name in ligne_axes:
+                if axe_name in axes_connections:
+                    ligne['axes'].append(axes_connections[axe_name])
+            
+            if ligne['axes']:
+                lignes_connectees.append(ligne)
+        
+        # Ajouter les axes isolés
+        axes_utilises = set()
+        for ligne in lignes_connectees:
+            for axe in ligne['axes']:
+                axes_utilises.add(axe['nom'])
+        
+        # Créer une ligne pour les axes isolés
+        axes_isolés = []
+        for axe_name, axe_data in axes_connections.items():
+            if axe_name not in axes_utilises:
+                axes_isolés.append(axe_data)
+        
+        if axes_isolés:
+            lignes_connectees.append({
+                'id': len(lignes_connectees) + 1,
+                'nom': 'Axes Isolés',
+                'axes': axes_isolés
+            })
+        
+        return jsonify({
+            'success': True,
+            'lignes': lignes_connectees,
+            'total_lignes': len(lignes_connectees),
+            'total_axes': len(axes_connections)
+        })
+        
+    except Exception as e:
+        print(f"Erreur dans api_arcs_multilines: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+def getAxeColor(axe_name):
+    """Retourner une couleur unique pour chaque axe"""
+    colors = {
+        # Axes principaux - Couleurs distinctes
+        'CASA VOYAGEURS/MARRAKECH': '#dc3545',      # Rouge
+        'CASAVOYAGEURS/SKACEM': '#198754',          # Vert
+        'TANGER/FES': '#6f42c1',                    # Violet
+        'OUJDA/FRONTIERE ALGERIENNE': '#fd7e14',    # Orange
+        'BENI ENSAR/TAOURIRT RAC': '#20c997',       # Turquoise
+        'BENGUERIR/SAFI U': '#ffc107',              # Jaune
+        'EL JADIDA/EL JORF': '#17a2b8',             # Bleu clair
+        'NOUACEUR/ELJADIDAV2': '#e83e8c',           # Rose
+        'LGV_V2': '#dc3545',                        # Rouge LGV
+        'S.ELAIDI/OUED ZEM': '#28a745',             # Vert foncé
+        'TRIANGLE DE NOUACEUR U': '#6c757d',        # Gris
+        'RAC_Sidi_Kacem': '#fd7e14',                # Orange
+        'BENI OUKIL/BOUARFA': '#20c997',            # Turquoise
+        'GUENFOUDA/HASSI BLAL_U': '#6f42c1',        # Violet
+        'ArcTangerMorora_Med': '#17a2b8',           # Bleu clair
+        'S.YAHYA_MACHRAA BEL KSIRI': '#ffc107',     # Jaune
+        'Bni.Ansart_Taourirt': '#e83e8c',           # Rose
+    }
+    
+    # Si l'axe n'a pas de couleur prédéfinie, générer une couleur basée sur le nom
+    if axe_name not in colors:
+        # Générer une couleur basée sur le hash du nom
+        import hashlib
+        hash_object = hashlib.md5(axe_name.encode())
+        hash_hex = hash_object.hexdigest()
+        
+        # Utiliser les 6 premiers caractères pour créer une couleur
+        color = '#' + hash_hex[:6]
+        colors[axe_name] = color
+    
+    return colors[axe_name]
+
+def getAxeType(axe_name):
+    """Déterminer le type d'axe"""
+    if 'LGV' in axe_name:
+        return 'Ligne à Grande Vitesse'
+    elif 'RAC' in axe_name or 'TRIANGLE' in axe_name:
+        return 'Raccordement'
+    elif 'U' in axe_name:
+        return 'Ligne Urbaine'
+    else:
+        return 'Ligne Classique'
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

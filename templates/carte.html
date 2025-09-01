@@ -42,10 +42,116 @@
                                 <option value="">Tous les types</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <button class="btn btn-primary w-100" onclick="resetMap()">
                                 <i class="fas fa-refresh me-2"></i>Réinitialiser
                             </button>
+                        </div>
+                        <div class="col-md-1">
+                            <button class="btn btn-info w-100" onclick="toggleAdvancedFilters()" title="Filtres avancés">
+                                <i class="fas fa-filter"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Filtres avancés -->
+                    <div class="row mt-3" id="advancedFilters" style="display: none;">
+                        <!-- Filtres d'incidents -->
+                        <div class="col-12 mb-3">
+                            <h6 class="text-primary mb-2">
+                                <i class="fas fa-exclamation-triangle me-2"></i>Filtres d'Incidents
+                            </h6>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="incidentStatusFilter" class="form-label">Statut</label>
+                            <select class="form-select" id="incidentStatusFilter">
+                                <option value="">Tous les statuts</option>
+                                <option value="Ouvert">Ouvert</option>
+                                <option value="En cours">En cours</option>
+                                <option value="Résolu">Résolu</option>
+                                <option value="Fermé">Fermé</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="incidentTypeFilter" class="form-label">Type</label>
+                            <select class="form-select" id="incidentTypeFilter">
+                                <option value="">Tous les types</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="incidentSourceFilter" class="form-label">Source</label>
+                            <select class="form-select" id="incidentSourceFilter">
+                                <option value="">Toutes les sources</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="incidentSystemFilter" class="form-label">Système</label>
+                            <select class="form-select" id="incidentSystemFilter">
+                                <option value="">Tous les systèmes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="incidentPeriodFilter" class="form-label">Période</label>
+                            <select class="form-select" id="incidentPeriodFilter">
+                                <option value="">Toutes les périodes</option>
+                                <option value="today">Aujourd'hui</option>
+                                <option value="week">Cette semaine</option>
+                                <option value="month">Ce mois</option>
+                                <option value="quarter">Ce trimestre</option>
+                                <option value="year">Cette année</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="incidentLocationFilter" class="form-label">Localisation</label>
+                            <select class="form-select" id="incidentLocationFilter">
+                                <option value="">Toutes les localisations</option>
+                                <option value="Gare">En gare</option>
+                                <option value="En ligne">En ligne</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtres de gares -->
+                        <div class="col-12 mb-3 mt-3">
+                            <h6 class="text-success mb-2">
+                                <i class="fas fa-building me-2"></i>Filtres de Gares
+                            </h6>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="gareTypeFilter" class="form-label">Type de Gare</label>
+                            <select class="form-select" id="gareTypeFilter">
+                                <option value="">Tous les types</option>
+                                <option value="ACTIVE">Gares actives</option>
+                                <option value="PASSIVE">Gares passives</option>
+                                <option value="LGV">LGV</option>
+                                <option value="CLASSIQUE">Classique</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="gareRegionFilter" class="form-label">Région</label>
+                            <select class="form-select" id="gareRegionFilter">
+                                <option value="">Toutes les régions</option>
+                                <option value="Tanger-Tétouan-Al Hoceïma">Tanger-Tétouan-Al Hoceïma</option>
+                                <option value="Rabat-Salé-Kénitra">Rabat-Salé-Kénitra</option>
+                                <option value="Casablanca-Settat">Casablanca-Settat</option>
+                                <option value="Marrakech-Safi">Marrakech-Safi</option>
+                                <option value="Fès-Meknès">Fès-Meknès</option>
+                                <option value="Oriental">Oriental</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="gareSearchFilter" class="form-label">Recherche</label>
+                            <input type="text" class="form-control" id="gareSearchFilter" placeholder="Nom de gare...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">&nbsp;</label>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success flex-fill" onclick="applyAdvancedFilters()">
+                                    <i class="fas fa-filter me-2"></i>Filtrer
+                                </button>
+                                <button class="btn btn-outline-secondary" onclick="clearAdvancedFilters()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
@@ -90,22 +196,73 @@
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-chart-bar me-2"></i>
-                        Statistiques
+                        Statistiques en Temps Réel
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="row text-center">
+                    <!-- Statistiques principales -->
+                    <div class="row text-center mb-3">
                         <div class="col-4 mb-3">
-                            <div class="stat-number" id="mapGaresCount">-</div>
+                            <div class="stat-number text-primary" id="mapGaresCount">-</div>
                             <div class="stat-label">Gares visibles</div>
                         </div>
                         <div class="col-4 mb-3">
-                            <div class="stat-number" id="mapArcsCount">-</div>
+                            <div class="stat-number text-success" id="mapArcsCount">-</div>
                             <div class="stat-label">Voies visibles</div>
                         </div>
                         <div class="col-4 mb-3">
-                            <div class="stat-number" id="mapIncidentsCount">-</div>
+                            <div class="stat-number text-danger" id="mapIncidentsCount">-</div>
                             <div class="stat-label">Incidents visibles</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Statistiques détaillées -->
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-2">Répartition des Incidents</h6>
+                            <div class="incident-stats">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small">Ouverts</span>
+                                    <span class="badge bg-danger" id="incidentsOuverts">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small">En cours</span>
+                                    <span class="badge bg-warning" id="incidentsEnCours">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small">Résolus</span>
+                                    <span class="badge bg-success" id="incidentsResolus">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small">Fermés</span>
+                                    <span class="badge bg-secondary" id="incidentsFermes">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Statistiques par type -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-2">Types d'Incidents</h6>
+                            <div class="incident-types" id="incidentTypesStats">
+                                <!-- Contenu dynamique -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Statistiques géographiques -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="text-muted mb-2">Localisation</h6>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small">En gare</span>
+                                <span class="badge bg-info" id="incidentsEnGare">0</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small">En ligne</span>
+                                <span class="badge bg-primary" id="incidentsEnLigne">0</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -116,29 +273,87 @@
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-info-circle me-2"></i>
-                        Légende
+                        Légende Interactive
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="legend-item mb-2">
-                        <i class="fas fa-circle text-primary me-2"></i>
-                        <span>Gares principales</span>
+                    <!-- Gares -->
+                    <div class="legend-section mb-3">
+                        <h6 class="text-primary mb-2">
+                            <i class="fas fa-building me-2"></i>Gares
+                        </h6>
+                        <div class="legend-item mb-2">
+                            <div class="legend-marker bg-primary me-2"></div>
+                            <span>Gares principales</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-marker bg-success me-2"></div>
+                            <span>Gares secondaires</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-marker bg-warning me-2"></div>
+                            <span>Gares LGV</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-marker bg-info me-2"></div>
+                            <span>Gares passives</span>
+                        </div>
                     </div>
-                    <div class="legend-item mb-2">
-                        <i class="fas fa-circle text-success me-2"></i>
-                        <span>Gares secondaires</span>
+                    
+                    <!-- Voies ferroviaires -->
+                    <div class="legend-section mb-3">
+                        <h6 class="text-success mb-2">
+                            <i class="fas fa-route me-2"></i>Voies Ferroviaires
+                        </h6>
+                        <div class="legend-item mb-2">
+                            <div class="legend-line bg-danger me-2"></div>
+                            <span>LGV Al Boraq</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-line bg-primary me-2"></div>
+                            <span>Voies principales</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-line bg-secondary me-2"></div>
+                            <span>Voies secondaires</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-line bg-warning me-2"></div>
+                            <span>Lignes phosphates</span>
+                        </div>
                     </div>
-                    <div class="legend-item mb-2">
-                        <div class="legend-line bg-primary me-2"></div>
-                        <span>Voies principales</span>
+                    
+                    <!-- Incidents -->
+                    <div class="legend-section mb-3">
+                        <h6 class="text-danger mb-2">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Incidents
+                        </h6>
+                        <div class="legend-item mb-2">
+                            <div class="legend-incident bg-danger me-2"></div>
+                            <span>Incidents ouverts</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-incident bg-warning me-2"></div>
+                            <span>Incidents en cours</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-incident bg-success me-2"></div>
+                            <span>Incidents résolus</span>
+                        </div>
+                        <div class="legend-item mb-2">
+                            <div class="legend-incident bg-secondary me-2"></div>
+                            <span>Incidents fermés</span>
+                        </div>
                     </div>
-                    <div class="legend-item mb-2">
-                        <div class="legend-line bg-secondary me-2"></div>
-                        <span>Voies secondaires</span>
-                    </div>
-                    <div class="legend-item mb-2">
-                        <i class="fas fa-exclamation-triangle text-danger me-2"></i>
-                        <span>Incidents</span>
+                    
+                    <!-- Types d'incidents -->
+                    <div class="legend-section">
+                        <h6 class="text-info mb-2">
+                            <i class="fas fa-tags me-2"></i>Types d'Incidents
+                        </h6>
+                        <div class="incident-types-legend" id="incidentTypesLegend">
+                            <!-- Contenu dynamique -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -185,6 +400,10 @@
 {% endblock %}
 
 {% block extra_css %}
+<!-- Leaflet MarkerCluster CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
+
 <style>
 .legend-item {
     display: flex;
@@ -196,6 +415,52 @@
     width: 20px;
     height: 3px;
     border-radius: 2px;
+}
+
+.legend-marker {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.legend-incident {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    border: 1px solid white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.legend-section {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.legend-section:last-child {
+    border-bottom: none;
+}
+
+.stat-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+.incident-stats .badge {
+    font-size: 0.75rem;
+}
+
+.incident-types .badge {
+    font-size: 0.7rem;
+    margin: 1px;
 }
 
 #map {
@@ -232,6 +497,19 @@
     margin: 2px;
 }
 
+.incident-popup {
+    text-align: center;
+}
+
+.incident-popup h6 {
+    color: var(--primary-color);
+    margin-bottom: 10px;
+}
+
+.incident-popup .badge {
+    margin: 2px;
+}
+
 .arc-popup {
     text-align: left;
 }
@@ -259,5 +537,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Leaflet MarkerCluster JS -->
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 <script src="{{ url_for('static', filename='js/carte.js') }}"></script>
 {% endblock %} 

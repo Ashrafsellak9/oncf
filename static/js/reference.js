@@ -34,13 +34,19 @@ function switchTab(tab) {
     document.querySelectorAll('.nav-link').forEach(link => {
         link.classList.remove('active');
     });
-    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    const activeTab = document.querySelector(`[data-tab="${tab}"]`);
+    if (activeTab) {
+        activeTab.classList.add('active');
+    }
     
     // Mettre à jour le contenu
     document.querySelectorAll('.tab-pane').forEach(content => {
         content.classList.remove('show', 'active');
     });
-    document.getElementById(`${tab}Tab`).classList.add('show', 'active');
+    const tabContent = document.getElementById(`${tab}Tab`);
+    if (tabContent) {
+        tabContent.classList.add('show', 'active');
+    }
     
     currentTab = tab;
     loadReferenceData(tab);
@@ -100,7 +106,11 @@ async function loadReferenceData(type) {
         
         const data = await response.json();
         
-        if (data.success) {
+        // Vérifier si c'est un tableau direct ou un objet avec success
+        if (Array.isArray(data)) {
+            displayReferenceData(type, data);
+            console.log(`✅ ${data.length} éléments chargés pour ${type}`);
+        } else if (data.success) {
             displayReferenceData(type, data.data);
             console.log(`✅ ${data.data.length} éléments chargés pour ${type}`);
         } else {
@@ -118,6 +128,11 @@ async function loadReferenceData(type) {
  */
 function displayReferenceData(type, data) {
     const container = document.getElementById(`${type}Container`);
+    
+    if (!container) {
+        console.error(`Container ${type}Container not found`);
+        return;
+    }
     
     if (data.length === 0) {
         container.innerHTML = `
@@ -330,6 +345,10 @@ function clearSousTypesFilter() {
  */
 function displayError(type) {
     const container = document.getElementById(`${type}Container`);
+    if (!container) {
+        console.error(`Container ${type}Container not found for error display`);
+        return;
+    }
     container.innerHTML = `
         <div class="alert alert-danger">
             <i class="fas fa-exclamation-triangle"></i>
@@ -347,6 +366,10 @@ function displayError(type) {
  */
 function showLoading(type) {
     const container = document.getElementById(`${type}Container`);
+    if (!container) {
+        console.error(`Container ${type}Container not found for loading display`);
+        return;
+    }
     container.innerHTML = `
         <div class="text-center py-4">
             <div class="spinner-border text-primary" role="status">

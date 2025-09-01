@@ -73,7 +73,17 @@ async function loadIncidents(page = 1, filters = {}) {
         // Ajouter les filtres
         if (filters.status) params.append('statut', filters.status);
         if (filters.type) params.append('type_id', filters.type);
+        if (filters.subType) params.append('sous_type_id', filters.subType);
+        if (filters.source) params.append('source_id', filters.source);
+        if (filters.system) params.append('system_id', filters.system);
+        if (filters.entity) params.append('entite_id', filters.entity);
+        if (filters.location) params.append('localisation_id', filters.location);
+        if (filters.impact) params.append('impact_service', filters.impact);
+        if (filters.sort) params.append('sort', filters.sort);
+        if (filters.startDate) params.append('start_date', filters.startDate);
+        if (filters.endDate) params.append('end_date', filters.endDate);
         if (filters.search) params.append('search', filters.search);
+        if (filters.period) params.append('period', filters.period);
         
         const response = await fetch(`${API_BASE}/evenements?${params}`);
         
@@ -87,14 +97,18 @@ async function loadIncidents(page = 1, filters = {}) {
             allIncidents = data.data;
             
             // Mettre à jour la pagination
-            updatePagination(data.pagination);
-            updatePaginationInfo();
+            if (data.pagination) {
+                updatePagination(data.pagination);
+                updatePaginationInfo();
+                console.log(`✅ ${allIncidents.length} incidents chargés (page ${data.pagination.page}/${data.pagination.pages})`);
+            } else {
+                console.log(`✅ ${allIncidents.length} incidents chargés (sans pagination)`);
+            }
             updateIncidentStats();
             
             // Afficher les incidents
             displayIncidents(allIncidents);
             
-            console.log(`✅ ${allIncidents.length} incidents chargés (page ${page}/${data.pagination.pages})`);
             return data;
         } else {
             throw new Error(data.error || 'Erreur lors du chargement des données');
@@ -247,51 +261,116 @@ async function loadReferenceData() {
     
     try {
         // Charger les types d'incidents
-        const typesResponse = await fetch(`${API_BASE}/reference/types`);
-        if (typesResponse.ok) {
-            incidentTypes = await typesResponse.json();
-            populateSelect('incidentType', incidentTypes, 'id', 'intitule');
+        try {
+            const typesResponse = await fetch(`${API_BASE}/reference/types`);
+            if (typesResponse.ok) {
+                incidentTypes = await typesResponse.json();
+                populateSelect('incidentType', incidentTypes, 'id', 'intitule');
+            }
+        } catch (error) {
+            console.warn('⚠️ Erreur de connexion pour les types:', error.message);
         }
         
         // Charger les sous-types
-        const sousTypesResponse = await fetch(`${API_BASE}/reference/sous-types`);
-        if (sousTypesResponse.ok) {
-            incidentSousTypes = await sousTypesResponse.json();
-            populateSelect('incidentSousType', incidentSousTypes, 'id', 'intitule');
+        try {
+            const sousTypesResponse = await fetch(`${API_BASE}/reference/sous-types`);
+            if (sousTypesResponse.ok) {
+                incidentSousTypes = await sousTypesResponse.json();
+                populateSelect('incidentSousType', incidentSousTypes, 'id', 'intitule');
+            }
+        } catch (error) {
+            console.warn('⚠️ Erreur de connexion pour les sous-types:', error.message);
         }
         
         // Charger les sources
-        const sourcesResponse = await fetch(`${API_BASE}/reference/sources`);
-        if (sourcesResponse.ok) {
-            incidentSources = await sourcesResponse.json();
-            populateSelect('incidentSource', incidentSources, 'id', 'intitule');
+        try {
+            const sourcesResponse = await fetch(`${API_BASE}/reference/sources`);
+            if (sourcesResponse.ok) {
+                incidentSources = await sourcesResponse.json();
+                populateSelect('incidentSource', incidentSources, 'id', 'intitule');
+            }
+        } catch (error) {
+            console.warn('⚠️ Erreur de connexion pour les sources:', error.message);
         }
         
         // Charger les systèmes
-        const systemsResponse = await fetch(`${API_BASE}/reference/systemes`);
-        if (systemsResponse.ok) {
-            incidentSystems = await systemsResponse.json();
-            populateSelect('incidentSystem', incidentSystems, 'id', 'intitule');
+        try {
+            const systemsResponse = await fetch(`${API_BASE}/reference/systemes`);
+            if (systemsResponse.ok) {
+                incidentSystemes = await systemsResponse.json();
+                populateSelect('incidentSystem', incidentSystemes, 'id', 'intitule');
+            }
+        } catch (error) {
+            console.warn('⚠️ Erreur de connexion pour les systèmes:', error.message);
         }
         
         // Charger les entités
-        const entitesResponse = await fetch(`${API_BASE}/reference/entites`);
-        if (entitesResponse.ok) {
-            incidentEntites = await entitesResponse.json();
-            populateSelect('incidentEntite', incidentEntites, 'id', 'intitule');
+        try {
+            const entitesResponse = await fetch(`${API_BASE}/reference/entites`);
+            if (entitesResponse.ok) {
+                incidentEntites = await entitesResponse.json();
+                populateSelect('incidentEntite', incidentEntites, 'id', 'intitule');
+            }
+        } catch (error) {
+            console.warn('⚠️ Erreur de connexion pour les entités:', error.message);
         }
         
         // Charger les localisations
-        const locationsResponse = await fetch(`${API_BASE}/reference/localisations`);
-        if (locationsResponse.ok) {
-            incidentLocations = await locationsResponse.json();
-            populateSelect('incidentLocation', incidentLocations, 'id', 'nom');
+        try {
+            const locationsResponse = await fetch(`${API_BASE}/reference/localisations`);
+            if (locationsResponse.ok) {
+                incidentLocations = await locationsResponse.json();
+                populateSelect('incidentLocation', incidentLocations, 'id', 'nom');
+            }
+        } catch (error) {
+            console.warn('⚠️ Erreur de connexion pour les localisations:', error.message);
         }
+        
+        // Remplir les nouveaux filtres avancés
+        populateAdvancedFilters();
         
         console.log('✅ Données de référence chargées');
     } catch (error) {
         console.error('❌ Erreur chargement données de référence:', error);
     }
+}
+
+/**
+ * Remplir les filtres avancés
+ */
+function populateAdvancedFilters() {
+    // Remplir le filtre des types
+    if (incidentTypes) {
+        populateSelect('typeFilter', incidentTypes, 'id', 'intitule');
+    }
+    
+    // Remplir le filtre des sous-types
+    if (incidentSousTypes) {
+        populateSelect('subTypeFilter', incidentSousTypes, 'id', 'intitule');
+    }
+    
+    // Remplir le filtre des sources
+    if (incidentSources) {
+        populateSelect('sourceFilter', incidentSources, 'id', 'intitule');
+    }
+    
+    // Remplir le filtre des systèmes
+    if (incidentSystemes) {
+        populateSelect('systemFilter', incidentSystemes, 'id', 'intitule');
+    }
+    
+    // Remplir le filtre des entités
+    if (incidentEntites) {
+        populateSelect('entityFilter', incidentEntites, 'id', 'intitule');
+    }
+    
+    // Remplir le filtre des localisations
+    if (incidentLocations) {
+        populateSelect('locationFilter', incidentLocations, 'id', 'nom');
+    }
+    
+    // Charger les filtres sauvegardés
+    loadSavedFilters();
 }
 
 /**
@@ -375,15 +454,161 @@ function toggleTypeFilter(chip, typeId) {
  * Appliquer les filtres
  */
 async function applyFilters() {
-    const status = document.getElementById('statusFilter').value;
-    const period = document.getElementById('periodFilter').value;
-    const search = document.getElementById('searchFilter').value;
+    // Récupérer tous les filtres
+    const filters = {
+        status: document.getElementById('statusFilter').value,
+        period: document.getElementById('periodFilter').value,
+        search: document.getElementById('searchFilter').value,
+        type: document.getElementById('typeFilter').value,
+        subType: document.getElementById('subTypeFilter').value,
+        source: document.getElementById('sourceFilter').value,
+        system: document.getElementById('systemFilter').value,
+        entity: document.getElementById('entityFilter').value,
+        location: document.getElementById('locationFilter').value,
+        impact: document.getElementById('impactFilter').value,
+        sort: document.getElementById('sortFilter').value,
+        startDate: document.getElementById('startDate').value,
+        endDate: document.getElementById('endDate').value
+    };
     
     // Retourner à la première page lors du filtrage
     currentPage = 1;
     
-    const filters = { status, period, search };
+    // Afficher les filtres actifs
+    updateActiveFilters(filters);
+    
     await loadIncidents(1, filters);
+}
+
+/**
+ * Effacer tous les filtres
+ */
+function clearFilters() {
+    // Réinitialiser tous les filtres
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('periodFilter').value = '';
+    document.getElementById('searchFilter').value = '';
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('subTypeFilter').value = '';
+    document.getElementById('sourceFilter').value = '';
+    document.getElementById('systemFilter').value = '';
+    document.getElementById('entityFilter').value = '';
+    document.getElementById('locationFilter').value = '';
+    document.getElementById('impactFilter').value = '';
+    document.getElementById('sortFilter').value = 'date_desc';
+    document.getElementById('startDate').value = '';
+    document.getElementById('endDate').value = '';
+    
+    // Masquer les filtres actifs
+    document.getElementById('activeFilters').style.display = 'none';
+    
+    // Recharger les incidents sans filtres
+    applyFilters();
+}
+
+/**
+ * Sauvegarder les filtres
+ */
+function saveFilters() {
+    const filters = {
+        status: document.getElementById('statusFilter').value,
+        period: document.getElementById('periodFilter').value,
+        search: document.getElementById('searchFilter').value,
+        type: document.getElementById('typeFilter').value,
+        subType: document.getElementById('subTypeFilter').value,
+        source: document.getElementById('sourceFilter').value,
+        system: document.getElementById('systemFilter').value,
+        entity: document.getElementById('entityFilter').value,
+        location: document.getElementById('locationFilter').value,
+        impact: document.getElementById('impactFilter').value,
+        sort: document.getElementById('sortFilter').value,
+        startDate: document.getElementById('startDate').value,
+        endDate: document.getElementById('endDate').value
+    };
+    
+    localStorage.setItem('incidentFilters', JSON.stringify(filters));
+    showNotification('Filtres sauvegardés avec succès', 'success');
+}
+
+/**
+ * Charger les filtres sauvegardés
+ */
+function loadSavedFilters() {
+    const savedFilters = localStorage.getItem('incidentFilters');
+    if (savedFilters) {
+        try {
+            const filters = JSON.parse(savedFilters);
+            
+            // Appliquer les filtres sauvegardés
+            Object.keys(filters).forEach(key => {
+                const element = document.getElementById(key + 'Filter');
+                if (element && filters[key]) {
+                    element.value = filters[key];
+                }
+            });
+            
+            console.log('✅ Filtres sauvegardés chargés');
+        } catch (error) {
+            console.warn('⚠️ Erreur lors du chargement des filtres sauvegardés:', error);
+        }
+    }
+}
+
+/**
+ * Mettre à jour l'affichage des filtres actifs
+ */
+function updateActiveFilters(filters) {
+    const activeFiltersContainer = document.getElementById('activeFilters');
+    const activeFiltersList = document.getElementById('activeFiltersList');
+    
+    // Nettoyer la liste
+    activeFiltersList.innerHTML = '';
+    
+    const filterLabels = {
+        status: 'Statut',
+        period: 'Période',
+        search: 'Recherche',
+        type: 'Type',
+        subType: 'Sous-type',
+        source: 'Source',
+        system: 'Système',
+        entity: 'Entité',
+        location: 'Localisation',
+        impact: 'Impact',
+        sort: 'Tri',
+        startDate: 'Date début',
+        endDate: 'Date fin'
+    };
+    
+    let hasActiveFilters = false;
+    
+    Object.keys(filters).forEach(key => {
+        if (filters[key] && filters[key] !== '') {
+            hasActiveFilters = true;
+            
+            const chip = document.createElement('span');
+            chip.className = 'filter-chip';
+            chip.innerHTML = `
+                ${filterLabels[key]}: ${filters[key]}
+                <button class="remove-btn" onclick="removeFilter('${key}')">×</button>
+            `;
+            activeFiltersList.appendChild(chip);
+        }
+    });
+    
+    // Afficher ou masquer la section des filtres actifs
+    activeFiltersContainer.style.display = hasActiveFilters ? 'block' : 'none';
+}
+
+/**
+ * Supprimer un filtre spécifique
+ */
+function removeFilter(filterKey) {
+    const element = document.getElementById(filterKey + 'Filter');
+    if (element) {
+        element.value = '';
+        applyFilters();
+    }
 }
 
 /**

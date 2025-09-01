@@ -4,41 +4,24 @@ Script pour vérifier la structure de la table gpd_gares_ref
 """
 
 import psycopg2
-import os
 
-def check_table_structure():
-    """Vérifier la structure de la table gpd_gares_ref"""
+try:
+    conn = psycopg2.connect('postgresql://postgres:postgres@localhost:5432/oncf_achraf')
+    cur = conn.cursor()
     
-    try:
-        conn = psycopg2.connect(os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/oncf_achraf'))
-        cursor = conn.cursor()
-        
-        # Vérifier les colonnes de gpd_gares_ref
-        cursor.execute("""
-            SELECT column_name, data_type 
-            FROM information_schema.columns 
-            WHERE table_name = 'gpd_gares_ref' 
-            AND table_schema = 'gpr' 
-            ORDER BY ordinal_position
-        """)
-        
-        columns = cursor.fetchall()
-        print("Colonnes de gpd_gares_ref:")
-        for col in columns:
-            print(f"  - {col[0]} ({col[1]})")
-        
-        # Vérifier quelques données
-        cursor.execute("SELECT * FROM gpr.gpd_gares_ref LIMIT 1")
-        sample_data = cursor.fetchone()
-        if sample_data:
-            print(f"\nExemple de données:")
-            print(f"  {sample_data}")
-        
-        cursor.close()
-        conn.close()
-        
-    except Exception as e:
-        print(f"Erreur: {e}")
-
-if __name__ == "__main__":
-    check_table_structure()
+    # Check ge_evenement table structure
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'ge_evenement' AND table_schema = 'gpr' ORDER BY ordinal_position")
+    columns = [row[0] for row in cur.fetchall()]
+    print("ge_evenement columns:", columns)
+    
+    # Check a few sample rows
+    cur.execute("SELECT * FROM gpr.ge_evenement LIMIT 3")
+    rows = cur.fetchall()
+    print("\nSample rows:")
+    for row in rows:
+        print(row)
+    
+    conn.close()
+    
+except Exception as e:
+    print("Error:", e)
